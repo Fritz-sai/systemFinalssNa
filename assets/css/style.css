@@ -681,3 +681,42 @@ footer {
         grid-template-columns: 1fr;
     }
 }
+
+/* OTP field styling (4-6 digit boxes) */
+.otp-inputs {
+    display: flex;
+    justify-content: center;
+    gap: 0.7rem;
+    margin: 1rem 0;
+}
+.otp-inputs input {
+    width: 3.25rem;
+    height: 3.25rem;
+    text-align: center;
+    font-size: 1.35rem;
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    outline: none;
+    transition: var(--transition);
+}
+.otp-inputs input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(58, 134, 255, 0.1);
+}
+.error-message {
+    color: #e74c3c;
+    margin-bottom: 0.8rem;
+}
+.success-message {
+    color: #27ae60;
+    margin-bottom: 0.8rem;
+}
+.toggle-link {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+.toggle-link a {
+    color: var(--accent);
+    font-weight: 600;
+}
