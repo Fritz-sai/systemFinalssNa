@@ -17,11 +17,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($providerId && in_array($action, ['approve', 'reject'])) {
         $notes = trim($_POST['notes'] ?? '');
         if ($action === 'approve') {
-            $pdo->prepare("UPDATE providers SET face_verified = 1, face_verification_rejected = 0, admin_notes = ? WHERE id = ?")
+            $pdo->prepare("UPDATE providers SET face_verified = 1, face_verification_rejected = 0, verification_status = 'approved', admin_notes = ? WHERE id = ?")
                 ->execute([$notes, $providerId]);
         } else {
-            $pdo->prepare("UPDATE providers SET face_verification_rejected = 1, admin_notes = ? WHERE id = ?")
+            $pdo->prepare("UPDATE providers SET face_verification_rejected = 1, verification_status = 'rejected', admin_notes = ? WHERE id = ?")
                 ->execute([$notes, $providerId]);
+        }
+    }
+}
+
+// Handle delete actions (provider or user)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    if ($action === 'delete_provider') {
+        $providerId = (int)($_POST['provider_id'] ?? 0);
+        if ($providerId) {
+            // Find the linked user_id and delete the user (will cascade to providers via FK)
+            try {
+                $u = $pdo->prepare("SELECT user_id FROM providers WHERE id = ? LIMIT 1");
+                $u->execute([$providerId]);
+                $userId = (int)($u->fetchColumn() ?: 0);
+                if ($userId) {
+                    $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
+                } else {
+                    // Fallback: delete provider row if no linked user found
+                    $pdo->prepare("DELETE FROM providers WHERE id = ?")->execute([$providerId]);
+                }
+            } catch (Throwable $e) {
+                // On error, attempt deleting provider directly
+                $pdo->prepare("DELETE FROM providers WHERE id = ?")->execute([$providerId]);
+            }
+        }
+    }
+    if ($action === 'delete_user') {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        if ($userId) {
+            $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
         }
     }
 }
@@ -43,6 +74,9 @@ $allProviders = $pdo->query("
     JOIN users u ON p.user_id = u.id
     ORDER BY p.created_at DESC
 ")->fetchAll();
+
+// Customers list for admin management
+$customers = $pdo->query("SELECT id, email, full_name, phone, created_at FROM users WHERE role = 'customer' ORDER BY created_at DESC")->fetchAll();
 
 $stats = [
     'users' => $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn(),
@@ -125,11 +159,48 @@ require_once 'includes/header.php';
                     <td style="padding: 0.75rem;"><?= htmlspecialchars($p['email']) ?></td>
                     <td style="padding: 0.75rem;"><?= htmlspecialchars($p['city']) ?>, <?= htmlspecialchars($p['barangay']) ?></td>
                     <td style="padding: 0.75rem;"><?= !empty($p['face_verified']) ? 'Verified ✓' : 'Unverified' ?></td>
+                            <td style="padding: 0.75rem;">
+                                <form method="POST" onsubmit="return confirm('Delete this provider? This cannot be undone.');">
+                                    <input type="hidden" name="provider_id" value="<?= $p['id'] ?>">
+                                    <button type="submit" name="action" value="delete_provider" class="btn btn-ghost">Delete</button>
+                                </form>
+                            </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
     </div>
     <?php endif; ?>
+    
+    <h2 class="section-title" style="margin-top:2rem;">Customers</h2>
+    <div style="overflow-x: auto; margin-bottom: 2rem;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border-color);">
+                    <th style="padding: 0.75rem; text-align: left;">Name</th>
+                    <th style="padding: 0.75rem; text-align: left;">Email</th>
+                    <th style="padding: 0.75rem; text-align: left;">Phone</th>
+                    <th style="padding: 0.75rem; text-align: left;">Joined</th>
+                    <th style="padding: 0.75rem; text-align: left;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($customers as $c): ?>
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 0.75rem;"><?= htmlspecialchars($c['full_name'] ?: '(No name)') ?></td>
+                    <td style="padding: 0.75rem;"><?= htmlspecialchars($c['email']) ?></td>
+                    <td style="padding: 0.75rem;"><?= htmlspecialchars($c['phone'] ?? '') ?></td>
+                    <td style="padding: 0.75rem;"><?= htmlspecialchars($c['created_at'] ?? '') ?></td>
+                    <td style="padding: 0.75rem;">
+                        <form method="POST" onsubmit="return confirm('Delete this customer? This will remove their account.');">
+                            <input type="hidden" name="user_id" value="<?= $c['id'] ?>">
+                            <button type="submit" name="action" value="delete_user" class="btn btn-ghost">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 </section>
 <?php require_once 'includes/footer.php'; ?>

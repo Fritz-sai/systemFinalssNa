@@ -36,4 +36,27 @@ foreach ($uploadDirs as $dir) {
 
 // Include database
 require_once __DIR__ . '/database.php';
+
+/**
+ * Ensure provider has uploaded selfie, ID, and business permit before using provider-only areas.
+ */
+function require_provider_documents() {
+    if (empty($_SESSION['role']) || $_SESSION['role'] !== 'provider' || empty($_SESSION['provider_id'])) {
+        return;
+    }
+
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare('SELECT selfie_path, id_image_path, business_permit_path, face_verified FROM providers WHERE id = ?');
+        $stmt->execute([$_SESSION['provider_id']]);
+        $provider = $stmt->fetch();
+
+        if ($provider && empty($provider['face_verified']) && (empty($provider['selfie_path']) || empty($provider['id_image_path']) || empty($provider['business_permit_path']))) {
+            header('Location: face_verification.php');
+            exit;
+        }
+    } catch (Throwable $e) {
+        // If DB errors happen, do not block by default.
+    }
+}
 ?>

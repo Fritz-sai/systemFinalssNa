@@ -10,7 +10,8 @@ $categories = $pdo->query("SELECT * FROM service_categories ORDER BY name")->fet
 // Get featured/sponsored providers (paid ads)
 $featuredStmt = $pdo->query("
     SELECT p.id, p.user_id, p.city, p.barangay, p.face_verified, p.profile_image_path, u.full_name,
-           (SELECT AVG(1) FROM (SELECT 1) x) as rating
+           (SELECT COUNT(*) FROM services s WHERE s.provider_id = p.id) as service_count,
+           (SELECT AVG(b.rating) FROM bookings b WHERE b.provider_id = p.id AND b.rating IS NOT NULL) as avg_rating
     FROM providers p
     JOIN users u ON p.user_id = u.id
     JOIN ads a ON a.provider_id = p.id
@@ -23,7 +24,9 @@ $featuredProviders = $featuredStmt ? $featuredStmt->fetchAll() : [];
 // Get regular verified providers (non-sponsored) for "new in area" - use session city if available
 $userCity = $_SESSION['user_city'] ?? '';
 $newProvidersStmt = $pdo->prepare("
-    SELECT p.id, p.user_id, p.city, p.barangay, p.face_verified, p.profile_image_path, u.full_name
+    SELECT p.id, p.user_id, p.city, p.barangay, p.face_verified, p.profile_image_path, u.full_name,
+           (SELECT COUNT(*) FROM services s WHERE s.provider_id = p.id) as service_count,
+           (SELECT AVG(b.rating) FROM bookings b WHERE b.provider_id = p.id AND b.rating IS NOT NULL) as avg_rating
     FROM providers p
     JOIN users u ON p.user_id = u.id
     WHERE p.verification_status = 'approved'
@@ -61,22 +64,22 @@ require_once 'includes/header.php';
     <h2 class="section-title">Featured Service Providers</h2>
     <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Sponsored listings from verified providers</p>
     <div class="provider-grid">
-        <?php foreach ($featuredProviders as $provider): ?>
-        <a href="provider_profile.php?id=<?= $provider['id'] ?>" class="card provider-card card-sponsored" style="text-decoration: none; color: inherit;">
-            <span class="badge-sponsored">Sponsored</span>
-            <div class="card-image" style="overflow:hidden;">
-                <?php if (!empty($provider['profile_image_path'])): ?>
-                    <img src="<?= htmlspecialchars($provider['profile_image_path']) ?>" alt="Provider photo" style="width:100%; height:100%; object-fit:cover; display:block;">
-                <?php else: ?>
-                    👤
-                <?php endif; ?>
-            </div>
-            <div class="card-body">
-                <h3><?= htmlspecialchars($provider['full_name']) ?><?php if (!empty($provider['face_verified'])): ?> <span class="badge-verified">✓</span><?php endif; ?></h3>
-                <div class="rating">★ <?= number_format($provider['rating'] ?? 4.8, 1) ?></div>
-                <div class="location"><?= htmlspecialchars($provider['city']) ?>, <?= htmlspecialchars($provider['barangay']) ?></div>
-            </div>
-        </a>
+        <?php foreach ($featuredProviders as $p): ?>
+            <?php
+            $provider = [
+                'id' => $p['id'],
+                'name' => $p['full_name'],
+                'avatar' => !empty($p['profile_image_path']) ? $p['profile_image_path'] : '',
+                'title' => '',
+                'bio' => '',
+                'service' => isset($p['service_count']) ? (int)$p['service_count'] : 0,
+                'location' => trim(($p['city'] ?? '') . ', ' . ($p['barangay'] ?? '')),
+                'rate' => isset($p['avg_rating']) ? round((float)$p['avg_rating'],1) : 0,
+                'sponsored' => true,
+                'face_verified' => !empty($p['face_verified']),
+            ];
+            include __DIR__ . '/includes/provider_card.php';
+            ?>
         <?php endforeach; ?>
     </div>
 </section>
@@ -87,21 +90,22 @@ require_once 'includes/header.php';
     <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Recently verified service providers</p>
     <?php if (!empty($newProviders)): ?>
     <div class="provider-grid">
-        <?php foreach ($newProviders as $provider): ?>
-        <a href="provider_profile.php?id=<?= $provider['id'] ?>" class="card provider-card" style="text-decoration: none; color: inherit;">
-            <div class="card-image" style="overflow:hidden;">
-                <?php if (!empty($provider['profile_image_path'])): ?>
-                    <img src="<?= htmlspecialchars($provider['profile_image_path']) ?>" alt="Provider photo" style="width:100%; height:100%; object-fit:cover; display:block;">
-                <?php else: ?>
-                    👤
-                <?php endif; ?>
-            </div>
-            <div class="card-body">
-                <h3><?= htmlspecialchars($provider['full_name']) ?><?php if (!empty($provider['face_verified'])): ?> <span class="badge-verified">✓</span><?php endif; ?></h3>
-                <div class="rating">★ 4.5</div>
-                <div class="location"><?= htmlspecialchars($provider['city']) ?>, <?= htmlspecialchars($provider['barangay']) ?></div>
-            </div>
-        </a>
+        <?php foreach ($newProviders as $p): ?>
+            <?php
+            $provider = [
+                'id' => $p['id'],
+                'name' => $p['full_name'],
+                'avatar' => !empty($p['profile_image_path']) ? $p['profile_image_path'] : '',
+                'title' => '',
+                'bio' => '',
+                'service' => isset($p['service_count']) ? (int)$p['service_count'] : 0,
+                'location' => trim(($p['city'] ?? '') . ', ' . ($p['barangay'] ?? '')),
+                'rate' => isset($p['avg_rating']) ? round((float)$p['avg_rating'],1) : 0,
+                'sponsored' => false,
+                'face_verified' => !empty($p['face_verified']),
+            ];
+            include __DIR__ . '/includes/provider_card.php';
+            ?>
         <?php endforeach; ?>
     </div>
     <?php else: ?>

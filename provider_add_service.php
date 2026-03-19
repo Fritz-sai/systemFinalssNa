@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($title && $category && $priceMin >= 0) {
         $pdo->prepare("INSERT INTO services (provider_id, category_id, title, description, price_min, price_max) VALUES (?, ?, ?, ?, ?, ?)")
             ->execute([$providerId, $category, $title, $description, $priceMin, $priceMax ?: $priceMin]);
-        header('Location: dashboard_provider.php');
+        header('Location: face_verification.php');
         exit;
     }
 }

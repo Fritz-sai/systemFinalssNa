@@ -7,6 +7,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'provider') {
     exit;
 }
 
+require_provider_documents();
+
 $pdo = getDBConnection();
 $providerId = $_SESSION['provider_id'];
 $userId = $_SESSION['user_id'];
@@ -39,7 +41,7 @@ require_once 'includes/header.php';
         <h3>Account Status</h3>
         <?php if (!empty($provider['face_verified'])): ?>
             <p><span class="badge-verified">✓ Verified</span> You have the Verified badge.</p>
-        <?php elseif (($provider['selfie_path'] || $provider['id_image_path']) && !$provider['face_verified'] && empty($provider['face_verification_rejected'])): ?>
+        <?php elseif ((!empty($provider['selfie_path']) || !empty($provider['id_image_path']) || !empty($provider['business_permit_path'])) && empty($provider['face_verified']) && empty($provider['face_verification_rejected'])): ?>
             <p>Face verification: <strong>Under Review</strong></p>
             <p style="color: var(--text-muted); font-size: 0.9rem;">We're reviewing your documents. You'll get the Verified badge once approved.</p>
         <?php else: ?>

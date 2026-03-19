@@ -39,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
         $password_confirm = $_POST['password_confirm'] ?? '';
+        $city = trim($_POST['city'] ?? '');
+        $barangay = trim($_POST['barangay'] ?? '');
 
         if (!in_array($role, ['customer', 'provider'])) {
             $error = 'Please select Customer or Provider.';
@@ -61,28 +63,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 // username may not exist yet
             }
 
-            if (!$error && $role === 'provider') {
-                $city = trim($_POST['city'] ?? '');
-                $barangay = trim($_POST['barangay'] ?? '');
-                if (empty($city) || empty($barangay)) {
-                    $error = 'City and Barangay are required for providers.';
+            if (!$error) {
+                if ($role === 'provider') {
+                    if (empty($city) || empty($barangay)) {
+                        $error = 'City and Barangay are required for providers.';
+                    }
+                } else {
+                    // require customer location at signup
+                    if (empty($city) || empty($barangay)) {
+                        $error = 'City and Barangay are required for customers.';
+                    }
                 }
             }
 
             if (!$error) {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 try {
-                    $pdo->prepare('INSERT INTO users (email, username, password_hash, full_name, phone, role, email_verified, phone_verified) VALUES (?, ?, ?, ?, ?, ?, 1, 1)')
-                        ->execute([$email_for_display, $username, $hash, $full_name, $phone_for_display, $role]);
+                    $pdo->prepare('INSERT INTO users (email, username, password_hash, full_name, phone, role, city, barangay, email_verified, phone_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)')
+                        ->execute([$email_for_display, $username, $hash, $full_name, $phone_for_display, $role, $city, $barangay]);
                 } catch (PDOException $e) {
-                    $pdo->prepare('INSERT INTO users (email, password_hash, full_name, phone, role, email_verified, phone_verified) VALUES (?, ?, ?, ?, ?, 1, 1)')
-                        ->execute([$email_for_display, $hash, $full_name, $phone_for_display, $role]);
+                    $pdo->prepare('INSERT INTO users (email, password_hash, full_name, phone, role, city, barangay, email_verified, phone_verified) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)')
+                        ->execute([$email_for_display, $hash, $full_name, $phone_for_display, $role, $city, $barangay]);
                 }
 
                 $userId = $pdo->lastInsertId();
                 if ($role === 'provider') {
-                    $pdo->prepare('INSERT INTO providers (user_id, city, barangay) VALUES (?, ?, ?)')
+                    $pdo->prepare('INSERT INTO providers (user_id, city, barangay, verification_status) VALUES (?, ?, ?, "pending")')
                         ->execute([$userId, $city, $barangay]);
+                    $_SESSION['user_city'] = $city;
+                    $_SESSION['user_barangay'] = $barangay;
+                } else {
+                    $_SESSION['user_city'] = $city;
+                    $_SESSION['user_barangay'] = $barangay;
                 }
 
                 unset($_SESSION['reg_email'], $_SESSION['reg_phone'], $_SESSION['reg_role'], $_SESSION['reg_email_verified'], $_SESSION['reg_phone_verified'], $_SESSION['reg_email_code'], $_SESSION['reg_phone_code']);
@@ -97,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $_SESSION['provider_id'] = $provRow ? $provRow['id'] : null;
                 }
 
-                header('Location: ' . ($role === 'provider' ? 'dashboard_provider.php' : 'dashboard_customer.php'));
+                header('Location: ' . ($role === 'provider' ? 'provider_add_service.php' : 'dashboard_customer.php'));
                 exit;
             }
         }
@@ -171,7 +183,28 @@ require_once 'includes/header.php';
                             <option value="">Choose barangay</option>
                         </select>
                     </div>
-                <?php endif; ?>
+                    <?php endif; ?>
+
+                    <?php if ($role === 'customer'): ?>
+                        <div class="form-group">
+                            <label>City / Municipality (Pampanga)</label>
+                            <select name="city" id="city-select" required>
+                                <option value="">Choose city / municipality</option>
+                                <?php
+                                $cities = ['Angeles City', 'City of San Fernando', 'Mabalacat City', 'Apalit', 'Arayat', 'Bacolor', 'Candaba', 'Floridablanca', 'Guagua', 'Lubao', 'Macabebe', 'Magalang', 'Masantol', 'Mexico', 'Minalin', 'Porac', 'San Luis', 'San Simon', 'Santa Ana', 'Santa Rita', 'Santo Tomas', 'Sasmuan'];
+                                $selectedCity = $_POST['city'] ?? '';
+                                foreach ($cities as $cityItem) : ?>
+                                    <option value="<?= htmlspecialchars($cityItem) ?>" <?= $selectedCity === $cityItem ? 'selected' : '' ?>><?= htmlspecialchars($cityItem) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Barangay</label>
+                            <select name="barangay" id="barangay-select" required>
+                                <option value="">Choose barangay</option>
+                            </select>
+                        </div>
+                    <?php endif; ?>
 
                 <button type="submit" class="btn btn-primary btn-side">Create Account</button>
             </form>

@@ -83,7 +83,7 @@ require_once 'includes/header.php';
                 <button type="submit" name="action" value="verify_email_code" class="btn btn-primary">Verify Email</button>
             <?php endif; ?>
 
-            <p class="toggle-link">Already verified? <a href="phone_verification.php">Phone step</a></p>
+            
             <p class="toggle-link">Already have an account? <a href="login.php">Login</a></p>
         </form>
     </div>

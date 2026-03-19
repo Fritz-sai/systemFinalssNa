@@ -17,18 +17,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Email and password are required.';
     } else {
         $pdo = getDBConnection();
-        $stmt = $pdo->prepare("SELECT id, password_hash, full_name, role FROM users WHERE email = ?");
+        $stmt = $pdo->prepare("SELECT id, password_hash, full_name, role, city, barangay FROM users WHERE email = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch();
         if ($user && password_verify($password, $user['password_hash'])) {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['full_name'] = $user['full_name'];
+            // set location session for customers
+            if ($user['role'] === 'customer') {
+                $_SESSION['user_city'] = $user['city'] ?? '';
+                $_SESSION['user_barangay'] = $user['barangay'] ?? '';
+            }
             if ($user['role'] === 'provider') {
                 $prov = $pdo->prepare("SELECT id FROM providers WHERE user_id = ?");
                 $prov->execute([$user['id']]);
                 $provRow = $prov->fetch();
                 $_SESSION['provider_id'] = $provRow ? $provRow['id'] : null;
+                // also set provider's city/barangay from providers table
+                try {
+                    $p = $pdo->prepare("SELECT city, barangay FROM providers WHERE user_id = ? LIMIT 1");
+                    $p->execute([$user['id']]);
+                    $provLoc = $p->fetch();
+                    if ($provLoc) {
+                        $_SESSION['user_city'] = $provLoc['city'] ?? '';
+                        $_SESSION['user_barangay'] = $provLoc['barangay'] ?? '';
+                    }
+                } catch (Throwable $e) { }
             }
             $redirect = $user['role'] === 'admin' ? 'admin_panel.php' : ($user['role'] === 'provider' ? 'dashboard_provider.php' : 'dashboard_customer.php');
             header("Location: $redirect");

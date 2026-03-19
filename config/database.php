@@ -46,6 +46,41 @@ function getDBConnection() {
                 }
             } catch (Throwable $e) { /* ignore */ }
 
+            // Add city/barangay to users for customer location filtering
+            try {
+                $col = $pdo->prepare("
+                    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'city'
+                ");
+                $col->execute([DB_NAME]);
+                if ((int)$col->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE users ADD COLUMN city VARCHAR(100) NULL");
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
+            try {
+                $col = $pdo->prepare("
+                    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'barangay'
+                ");
+                $col->execute([DB_NAME]);
+                if ((int)$col->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE users ADD COLUMN barangay VARCHAR(100) NULL");
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
+            // Business permit path (provider document requirement)
+            try {
+                $col = $pdo->prepare("
+                    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'providers' AND COLUMN_NAME = 'business_permit_path'
+                ");
+                $col->execute([DB_NAME]);
+                if ((int)$col->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE providers ADD COLUMN business_permit_path VARCHAR(500) NULL");
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
             // Contact unlocks (provider_id, customer_id = user_id of customer)
             $pdo->exec("
                 CREATE TABLE IF NOT EXISTS contact_unlocks (

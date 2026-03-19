@@ -7,6 +7,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'provider') {
     exit;
 }
 
+require_provider_documents();
+
 $pdo = getDBConnection();
 $providerId = $_SESSION['provider_id'];
 

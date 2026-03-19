@@ -27,6 +27,7 @@ CREATE TABLE providers (
     bio TEXT,
     selfie_path VARCHAR(500),
     id_image_path VARCHAR(500),
+    business_permit_path VARCHAR(500),
     verification_status ENUM('pending', 'approved', 'rejected') DEFAULT 'approved',
     face_verified TINYINT(1) DEFAULT 0,
     face_verification_rejected TINYINT(1) DEFAULT 0,

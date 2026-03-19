@@ -19,6 +19,20 @@ if (!$provider) {
     exit;
 }
 
+// Ensure provider has location and at least one service before allowing document upload
+try {
+    $svcStmt = $pdo->prepare("SELECT COUNT(*) FROM services WHERE provider_id = ?");
+    $svcStmt->execute([$providerId]);
+    $servicesCount = (int)$svcStmt->fetchColumn();
+} catch (Throwable $e) {
+    $servicesCount = 0;
+}
+
+if (empty($provider['city']) || empty($provider['barangay']) || $servicesCount === 0) {
+    header('Location: provider_add_service.php?setup_required=1');
+    exit;
+}
+
 $error = '';
 $success = '';
 
@@ -29,39 +43,45 @@ if ($provider['face_verified']) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$provider['face_verified']) {
     $selfiePath = $provider['selfie_path'] ?? '';
     $idPath = $provider['id_image_path'] ?? '';
+    $businessPermitPath = $provider['business_permit_path'] ?? '';
 
     if (!empty($_FILES['selfie']['name'])) {
         $selfiePath = 'uploads/selfies/' . $provider['user_id'] . '_' . time() . '_' . basename($_FILES['selfie']['name']);
-        if (move_uploaded_file($_FILES['selfie']['tmp_name'], $selfiePath)) {
-            // ok
-        } else {
+        if (!move_uploaded_file($_FILES['selfie']['tmp_name'], $selfiePath)) {
             $selfiePath = $provider['selfie_path'] ?? '';
         }
     }
+
     if (!empty($_FILES['id_image']['name'])) {
         $idPath = 'uploads/ids/' . $provider['user_id'] . '_' . time() . '_' . basename($_FILES['id_image']['name']);
-        if (move_uploaded_file($_FILES['id_image']['tmp_name'], $idPath)) {
-            // ok
-        } else {
+        if (!move_uploaded_file($_FILES['id_image']['tmp_name'], $idPath)) {
             $idPath = $provider['id_image_path'] ?? '';
         }
     }
 
-    if (empty($selfiePath) || empty($idPath)) {
-        $error = 'Please upload both a selfie and your ID image.';
+    if (!empty($_FILES['business_permit']['name'])) {
+        $businessPermitPath = 'uploads/ids/' . $provider['user_id'] . '_' . time() . '_' . basename($_FILES['business_permit']['name']);
+        if (!move_uploaded_file($_FILES['business_permit']['tmp_name'], $businessPermitPath)) {
+            $businessPermitPath = $provider['business_permit_path'] ?? '';
+        }
+    }
+
+    if (empty($selfiePath) || empty($idPath) || empty($businessPermitPath)) {
+        $error = 'Please upload selfie, ID image, and business permit to proceed.';
     } else {
-        $pdo->prepare("UPDATE providers SET selfie_path = ?, id_image_path = ?, face_verification_rejected = 0 WHERE id = ?")
-            ->execute([$selfiePath, $idPath, $providerId]);
-        $success = 'Face verification submitted! Our team will review your documents. You\'ll get the Verified badge once approved.';
+        $pdo->prepare("UPDATE providers SET selfie_path = ?, id_image_path = ?, business_permit_path = ?, face_verification_rejected = 0 WHERE id = ?")
+            ->execute([$selfiePath, $idPath, $businessPermitPath, $providerId]);
+        $success = 'Verification documents submitted! Our team will review. You\'ll get the Verified badge once approved.';
         $provider['selfie_path'] = $selfiePath;
         $provider['id_image_path'] = $idPath;
+        $provider['business_permit_path'] = $businessPermitPath;
     }
 }
 
 $statusMessage = '';
-if ($provider['face_verified']) {
+if (!empty($provider['face_verified'])) {
     $statusMessage = 'verified';
-} elseif (($provider['selfie_path'] || $provider['id_image_path']) && !$provider['face_verified'] && empty($provider['face_verification_rejected'])) {
+} elseif ((!empty($provider['selfie_path']) || !empty($provider['id_image_path']) || !empty($provider['business_permit_path'])) && empty($provider['face_verified']) && empty($provider['face_verification_rejected'])) {
     $statusMessage = 'pending';
 } elseif (!empty($provider['face_verification_rejected'])) {
     $statusMessage = 'rejected';
@@ -112,6 +132,10 @@ require_once 'includes/header.php';
                 <label>ID Image</label>
                 <input type="file" name="id_image" accept="image/*" required>
             </div>
+            <div class="form-group">
+                <label>Business Permit</label>
+                <input type="file" name="business_permit" accept="image/*,.pdf" required>
+            </div>
             <button type="submit" class="btn btn-primary">Submit Again</button>
         </form>
     </div>
@@ -129,6 +153,11 @@ require_once 'includes/header.php';
                 <label>ID Image</label>
                 <input type="file" name="id_image" accept="image/*" required>
                 <small style="color: var(--text-muted);">Government-issued ID (front side)</small>
+            </div>
+            <div class="form-group">
+                <label>Business Permit</label>
+                <input type="file" name="business_permit" accept="image/*,.pdf" required>
+                <small style="color: var(--text-muted);">Upload your business permit or related document</small>
             </div>
             <button type="submit" class="btn btn-primary">Submit for Verification</button>
             <a href="dashboard_provider.php" class="btn btn-ghost" style="margin-left: 0.5rem;">Cancel</a>
