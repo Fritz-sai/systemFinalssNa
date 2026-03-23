@@ -3,7 +3,7 @@ $pageTitle = 'Login';
 require_once 'config/config.php';
 
 if (isset($_SESSION['user_id'])) {
-    header('Location: ' . ($_SESSION['role'] === 'provider' ? 'dashboard_provider.php' : ($_SESSION['role'] === 'admin' ? 'admin_panel.php' : 'dashboard_customer.php')));
+    header('Location: ' . ($_SESSION['role'] === 'provider' ? 'provider_profile.php' : ($_SESSION['role'] === 'admin' ? 'admin_panel.php' : 'providers.php')));
     exit;
 }
 
@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } catch (Throwable $e) { }
             }
-            $redirect = $user['role'] === 'admin' ? 'admin_panel.php' : ($user['role'] === 'provider' ? 'dashboard_provider.php' : 'dashboard_customer.php');
+            $redirect = $user['role'] === 'admin' ? 'admin_panel.php' : ($user['role'] === 'provider' ? 'provider_profile.php?id=' . $_SESSION['provider_id'] : 'providers.php');
             header("Location: $redirect");
             exit;
         }

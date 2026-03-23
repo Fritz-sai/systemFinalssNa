@@ -113,12 +113,4 @@ require_once 'includes/header.php';
     <?php endif; ?>
 </section>
 
-<section>
-    <div class="promote-section">
-        <h2>Promote Your Service</h2>
-        <p>Are you a service provider? Get more visibility and reach more customers with our featured listings.</p>
-        <a href="promote_service.php" class="btn btn-primary">Learn More</a>
-    </div>
-</section>
-
 <?php require_once 'includes/footer.php'; ?>

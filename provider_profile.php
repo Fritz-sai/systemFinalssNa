@@ -114,11 +114,8 @@ require_once 'includes/header.php';
         <?php foreach ($services as $s): ?>
         <div class="card provider-card">
             <div class="card-body">
-                <h3><?= htmlspecialchars($s['title']) ?></h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem;"><?= htmlspecialchars($s['category_name']) ?></p>
-                <?php if ($s['description']): ?>
-                    <p style="font-size: 0.9rem; margin: 0.5rem 0;"><?= htmlspecialchars(substr($s['description'], 0, 100)) ?>...</p>
-                <?php endif; ?>
+                <h3><?= htmlspecialchars($s['category_name']) ?></h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Service Category</p>
                 <p><strong>₱<?= number_format($s['price_min']) ?> - ₱<?= number_format($s['price_max']) ?></strong></p>
                 <?php if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'customer'): ?>
                     <a href="book_service.php?provider=<?= $id ?>&service=<?= $s['id'] ?>" class="btn btn-primary" style="margin-top: 0.5rem;">Book this service</a>

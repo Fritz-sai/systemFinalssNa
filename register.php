@@ -3,7 +3,7 @@ $pageTitle = 'Create Account';
 require_once 'config/config.php';
 
 if (isset($_SESSION['user_id'])) {
-    header('Location: ' . ($_SESSION['role'] === 'provider' ? 'dashboard_provider.php' : 'dashboard_customer.php'));
+    header('Location: ' . ($_SESSION['role'] === 'provider' ? 'provider_profile.php?id=' . $_SESSION['provider_id'] : 'providers.php'));
     exit;
 }
 
@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $_SESSION['provider_id'] = $provRow ? $provRow['id'] : null;
                 }
 
-                header('Location: ' . ($role === 'provider' ? 'provider_add_service.php' : 'dashboard_customer.php'));
+                header('Location: ' . ($role === 'provider' ? 'provider_add_service.php' : 'providers.php'));
                 exit;
             }
         }

@@ -32,9 +32,9 @@ if ($isLoggedIn) {
         <?php endif; ?>
         <?php if ($isLoggedIn): ?>
             <?php if ($_SESSION['role'] === 'customer'): ?>
-                <a href="dashboard_customer.php">Dashboard</a>
+                <a href="dashboard_customer.php">My Profile</a>
             <?php elseif ($_SESSION['role'] === 'provider'): ?>
-                <a href="dashboard_provider.php">Dashboard</a>
+                <a href="provider_profile.php?id=<?= $_SESSION['provider_id'] ?>">My Profile</a>
                 <?php
                 $headerCredits = 0;
                 try {

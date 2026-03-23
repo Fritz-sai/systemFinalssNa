@@ -15,7 +15,7 @@ $prov = $pdo->prepare("SELECT verification_status FROM providers WHERE id = ?");
 $prov->execute([$providerId]);
 $provRow = $prov->fetch();
 if (!$provRow || $provRow['verification_status'] !== 'approved') {
-    header('Location: dashboard_provider.php');
+    header('Location: provider_profile.php?id=' . $providerId);
     exit;
 }
 
@@ -102,7 +102,7 @@ require_once 'includes/header.php';
                 <input type="number" name="amount" min="100" value="100" required>
             </div>
             <button type="submit" class="btn btn-primary">Proceed to GCash Payment</button>
-            <a href="dashboard_provider.php" class="btn btn-ghost" style="margin-left: 0.5rem;">Back</a>
+            <a href="provider_profile.php?id=<?= $providerId ?>" class="btn btn-ghost" style="margin-left: 0.5rem;">Back</a>
         </form>
     </div>
 </section>

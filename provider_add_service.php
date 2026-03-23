@@ -11,15 +11,13 @@ $providerId = $_SESSION['provider_id'];
 $pdo = getDBConnection();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $title = trim($_POST['title'] ?? '');
-    $description = trim($_POST['description'] ?? '');
     $category = (int)($_POST['category_id'] ?? 0);
     $priceMin = (float)($_POST['price_min'] ?? 0);
     $priceMax = (float)($_POST['price_max'] ?? 0);
 
-    if ($title && $category && $priceMin >= 0) {
-        $pdo->prepare("INSERT INTO services (provider_id, category_id, title, description, price_min, price_max) VALUES (?, ?, ?, ?, ?, ?)")
-            ->execute([$providerId, $category, $title, $description, $priceMin, $priceMax ?: $priceMin]);
+    if ($category && $priceMin >= 0) {
+        $pdo->prepare("INSERT INTO services (provider_id, category_id, price_min, price_max) VALUES (?, ?, ?, ?)")
+            ->execute([$providerId, $category, $priceMin, $priceMax ?: $priceMin]);
         header('Location: face_verification.php');
         exit;
     }
@@ -32,20 +30,12 @@ require_once 'includes/header.php';
     <h1 class="section-title">Add Service</h1>
     <form method="POST" class="card" style="padding: 2rem;">
         <div class="form-group">
-            <label>Title</label>
-            <input type="text" name="title" required>
-        </div>
-        <div class="form-group">
             <label>Category</label>
             <select name="category_id" required>
                 <?php foreach ($categories as $c): ?>
                     <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
                 <?php endforeach; ?>
             </select>
-        </div>
-        <div class="form-group">
-            <label>Description</label>
-            <textarea name="description"></textarea>
         </div>
         <div class="form-group">
             <label>Price Range (Min - Max ₱)</label>
@@ -55,7 +45,7 @@ require_once 'includes/header.php';
             </div>
         </div>
         <button type="submit" class="btn btn-primary">Add Service</button>
-        <a href="dashboard_provider.php" class="btn btn-ghost" style="margin-left: 0.5rem;">Cancel</a>
+        <a href="provider_profile.php?id=<?= $providerId ?>" class="btn btn-ghost" style="margin-left: 0.5rem;">Cancel</a>
     </form>
 </section>
 <?php require_once 'includes/footer.php'; ?>

@@ -21,7 +21,7 @@ $stmt->execute([$providerId, $userId]);
 $provider = $stmt->fetch();
 
 if (!$provider) {
-    header('Location: dashboard_provider.php');
+    header('Location: provider_profile.php?id=' . $providerId);
     exit;
 }
 
@@ -156,7 +156,7 @@ require_once 'includes/header.php';
             </div>
 
             <button type="submit" class="btn btn-primary">Save Changes</button>
-            <a href="dashboard_provider.php" class="btn btn-ghost" style="margin-left: 0.5rem;">Cancel</a>
+            <a href="provider_profile.php?id=<?= $providerId ?>" class="btn btn-ghost" style="margin-left: 0.5rem;">Cancel</a>
         </form>
     </div>
 </section>

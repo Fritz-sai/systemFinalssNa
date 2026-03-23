@@ -20,7 +20,7 @@ if (!$provider) {
     exit;
 }
 
-$servicesStmt = $pdo->prepare("SELECT * FROM services WHERE provider_id = ?");
+$servicesStmt = $pdo->prepare("SELECT s.*, c.name as category_name FROM services s JOIN service_categories c ON s.category_id = c.id WHERE s.provider_id = ?");
 $servicesStmt->execute([$providerId]);
 $services = $servicesStmt->fetchAll();
 
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($serviceId && $date) {
         $pdo->prepare("INSERT INTO bookings (customer_id, provider_id, service_id, scheduled_date, notes) VALUES (?, ?, ?, ?, ?)")
             ->execute([$_SESSION['user_id'], $providerId, $serviceId, $date, $notes]);
-        header('Location: dashboard_customer.php');
+        header('Location: providers.php');
         exit;
     }
 }
@@ -53,7 +53,7 @@ require_once 'includes/header.php';
                 <option value="">Choose a service...</option>
                 <?php foreach ($services as $s): ?>
                     <option value="<?= $s['id'] ?>" <?= $serviceId && (int)$s['id'] === $serviceId ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($s['title']) ?> - ₱<?= number_format($s['price_min']) ?>-<?= number_format($s['price_max']) ?>
+                        <?= htmlspecialchars($s['category_name']) ?> - ₱<?= number_format($s['price_min']) ?>-<?= number_format($s['price_max']) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

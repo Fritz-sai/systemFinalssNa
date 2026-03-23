@@ -7,47 +7,57 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'provider') {
 
 $pdo = getDBConnection();
 $userId = $_SESSION['user_id'];
+$providerId = $_SESSION['provider_id'];
 $error = '';
 
-// Get latest unverified OTP (if any)
-$stmt = $pdo->prepare("SELECT token, expires_at FROM verifications WHERE user_id=? AND type='phone' AND verified=0 ORDER BY id DESC LIMIT 1");
-$stmt->execute([$userId]);
-$otpRow = $stmt->fetch();
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $code = trim($_POST['otp'] ?? '');
-    if (empty($code)) {
-        $error = 'Enter the OTP code.';
+    $phone = trim($_POST['phone'] ?? '');
+    
+    if (empty($phone)) {
+        $error = 'Phone number is required.';
+    } elseif (!preg_match('/^09\d{9}$/', $phone)) {
+        $error = 'Invalid phone format. Use 09xxxxxxxxx.';
     } else {
-        // Look up OTP without relying on database NOW() to avoid timezone issues
-        $stmt = $pdo->prepare("SELECT id, expires_at FROM verifications WHERE user_id=? AND type='phone' AND token=? AND verified=0 ORDER BY id DESC LIMIT 1");
-        $stmt->execute([$userId, $code]);
-        $row = $stmt->fetch();
-        if ($row && strtotime($row['expires_at']) > time()) {
-            $pdo->prepare("UPDATE users SET phone_verified=1 WHERE id=?")->execute([$userId]);
-            $pdo->prepare("UPDATE verifications SET verified=1 WHERE user_id=? AND type='phone'")->execute([$userId]);
+        // Check if phone is already used by another user
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE phone = ? AND id != ?");
+        $stmt->execute([$phone, $userId]);
+        if ($stmt->fetch()) {
+            $error = 'This phone number is already registered by another user.';
+        } else {
+            // Update phone and set as verified
+            $pdo->prepare("UPDATE users SET phone = ?, phone_verified = 1 WHERE id = ?")
+                ->execute([$phone, $userId]);
             $_SESSION['phone_verified'] = true;
-            header('Location: dashboard_provider.php');
+            header('Location: provider_profile.php?id=' . $providerId);
             exit;
         }
-        $error = 'Invalid or expired OTP.';
     }
-}
-
-$otp = '';
-// Generate a new OTP only if there is none or the last one is expired
-if (!$otpRow || strtotime($otpRow['expires_at']) <= time()) {
-    $otp = str_pad(rand(100000, 999999), 6, '0');
-    $expires = date('Y-m-d H:i:s', strtotime('+10 minutes'));
-    $pdo->prepare("INSERT INTO verifications (user_id, type, token, expires_at) VALUES (?, 'phone', ?, ?)")
-        ->execute([$userId, $otp, $expires]);
-} else {
-    $otp = $otpRow['token'];
 }
 
 $pageTitle = 'Verify Phone';
 require_once 'includes/header.php';
 ?>
+<div class="auth-container">
+    <div class="auth-card fade-in">
+        <h1>Add Your Phone Number</h1>
+        <p style="color: #6c757d; margin: 0.5rem 0 1rem;">Customers will use this number to contact you.</p>
+
+        <?php if ($error): ?><p class="error-message"><?= htmlspecialchars($error) ?></p><?php endif; ?>
+
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label>Phone Number</label>
+                <input type="tel" name="phone" required placeholder="09xxxxxxxxx" pattern="09\d{9}" autocomplete="tel">
+                <small style="color: #6c757d;">Format: 09xxxxxxxxx (11 digits)</small>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Phone Number</button>
+
+            <p class="toggle-link"><a href="provider_profile.php?id=<?= $providerId ?>">Skip for now</a></p>
+        </form>
+    </div>
+</div>
+<?php require_once 'includes/footer.php'; ?>
+
 <div class="auth-container">
     <div class="auth-card">
         <h1>Verify Your Phone</h1>

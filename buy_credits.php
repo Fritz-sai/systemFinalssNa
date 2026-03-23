@@ -99,7 +99,7 @@ require_once 'includes/header.php';
             </div>
 
             <button type="submit" class="btn btn-primary">Add Credits</button>
-            <a href="dashboard_provider.php" class="btn btn-ghost" style="margin-left: 0.5rem;">Back</a>
+            <a href="provider_profile.php?id=<?= $providerId ?>" class="btn btn-ghost" style="margin-left: 0.5rem;">Back</a>
         </form>
     </div>
 </section>
