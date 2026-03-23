@@ -33,9 +33,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $subject = 'Your verification code';
                 $body = "Your email verification code is: " . $_SESSION['reg_email_code'];
-                @mail($email, $subject, $body);
+                // Use send_email helper (will use PHPMailer SMTP if configured)
+                $sent = send_email($email, $subject, $body, false);
 
-                $success = 'Verification code sent. (Demo code: ' . htmlspecialchars($_SESSION['reg_email_code']) . ')';
+                if ($sent) {
+                    $success = 'Verification code sent. Please check your email.';
+                } else {
+                    $success = 'Unable to send via SMTP. Demo code: ' . htmlspecialchars($_SESSION['reg_email_code']);
+                }
                 $reg_email = $email;
             }
         }

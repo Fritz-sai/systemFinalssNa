@@ -37,6 +37,62 @@ foreach ($uploadDirs as $dir) {
 // Include database
 require_once __DIR__ . '/database.php';
 
+// SMTP / Mail settings (set these to your SMTP provider credentials)
+define('SMTP_ENABLED', false); // set to true after configuring below
+define('SMTP_HOST', 'smtp.gmail.com');
+define('SMTP_PORT', 587);
+define('SMTP_USER', 'navarrofritz4@gmail.com');
+define('SMTP_PASS', 'vgfaklfjwgpiswpo'); // for Gmail use an App Password
+define('SMTP_SECURE', 'tls'); // 'tls' or 'ssl'
+define('MAIL_FROM_EMAIL', 'no-reply@example.com');
+define('MAIL_FROM_NAME', SITE_NAME);
+
+/**
+ * Send an email using PHPMailer (if available) or fallback to mail().
+ * For reliable Gmail delivery, enable SMTP and provide credentials above.
+ */
+function send_email($to, $subject, $body, $isHtml = false)
+{
+    // Try to use Composer autoload + PHPMailer if SMTP_ENABLED
+    $autoload = __DIR__ . '/../vendor/autoload.php';
+    if (SMTP_ENABLED && file_exists($autoload)) {
+        require_once $autoload;
+        try {
+            $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host = SMTP_HOST;
+            $mail->SMTPAuth = true;
+            $mail->Username = SMTP_USER;
+            $mail->Password = SMTP_PASS;
+            $mail->SMTPSecure = SMTP_SECURE;
+            $mail->Port = SMTP_PORT;
+
+            $mail->setFrom(MAIL_FROM_EMAIL, MAIL_FROM_NAME);
+            $mail->addAddress($to);
+            $mail->isHTML($isHtml);
+            $mail->Subject = $subject;
+            $mail->Body = $body;
+            if (!$isHtml) {
+                $mail->AltBody = strip_tags($body);
+            }
+
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log('Mail error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    // Fallback to PHP mail() — may require local SMTP setup to work reliably
+    $headers = "From: " . MAIL_FROM_NAME . " <" . MAIL_FROM_EMAIL . ">\r\n";
+    if ($isHtml) {
+        $headers .= "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+    }
+
+    return mail($to, $subject, $body, $headers);
+}
+
 /**
  * Ensure provider has uploaded selfie, ID, and business permit before using provider-only areas.
  */
