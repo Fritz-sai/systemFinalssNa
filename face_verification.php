@@ -139,12 +139,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$provider['face_verified']) {
         } else {
             $permitPath = 'uploads/payments/' . $provider['user_id'] . '_permit_' . time() . '_' . basename($_FILES['business_permit']['name']);
             if (move_uploaded_file($_FILES['business_permit']['tmp_name'], $permitPath)) {
-                $pdo->prepare("UPDATE providers SET business_permit_path = ?, face_verified = 1, face_verification_date = NOW() WHERE id = ?")
+                // Auto-approve provider when all documents are complete
+                $pdo->prepare("UPDATE providers SET business_permit_path = ?, face_verified = 1, face_verification_date = NOW(), verification_status = 'approved' WHERE id = ?")
                     ->execute([$permitPath, $providerId]);
                 $provider['business_permit_path'] = $permitPath;
                 $provider['face_verified'] = 1;
+                $provider['verification_status'] = 'approved';
                 $currentStep = 5;
-                $success = 'All documents uploaded successfully! Your verification is now under review. You\'ll receive the Verified badge once approved.';
+                $success = 'All documents uploaded successfully! You\'re now verified and visible to customers! 🎉';
             } else {
                 $error = 'Failed to upload business permit.';
             }

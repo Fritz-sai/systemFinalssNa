@@ -3,10 +3,16 @@
  * ServiceLink - One-time install script
  * Run this once to create database and admin user, then delete this file.
  */
+session_start();
+$pageTitle = 'Installation';
+require_once 'config/config.php';
 
 $host = 'localhost';
 $user = 'root';
 $pass = '';
+
+$installationMessage = '';
+$installationError = '';
 
 try {
     $pdo = new PDO("mysql:host=$host", $user, $pass);
@@ -45,8 +51,24 @@ try {
     );
     $stmt->execute(['admin@servicelink.com', $hash, 'Admin User', '0000000000', 'admin']);
 
-    echo "Installation complete! Admin: admin@servicelink.com / admin123<br>";
-    echo "<a href='index.php'>Go to ServiceLink</a>";
+    $installationMessage = "Installation complete! Admin: admin@servicelink.com / admin123";
 } catch (Exception $e) {
-    die("Install failed: " . $e->getMessage());
+    $installationError = "Install failed: " . $e->getMessage();
 }
+
+require_once 'includes/header.php';
+?>
+
+<main>
+    <div style="padding: 20px; max-width: 600px; margin: 20px auto;">
+        <?php if ($installationError): ?>
+            <div style="color: red;"><?= htmlspecialchars($installationError) ?></div>
+        <?php elseif ($installationMessage): ?>
+            <div style="color: green;"><?= htmlspecialchars($installationMessage) ?></div>
+            <br>
+            <a href="index.php" class="btn btn-primary">Go to ServiceLink</a>
+        <?php endif; ?>
+    </div>
+</main>
+
+<?php require_once 'includes/footer.php'; ?>
