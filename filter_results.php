@@ -23,7 +23,7 @@ foreach ($rows as $r) {
     if (!in_array($b, $allBarangays, true)) $allBarangays[] = $b;
 }
 
- $sql = "SELECT p.id, p.user_id, p.city, p.barangay, p.face_verified, p.profile_image_path, u.full_name,
+ $sql = "SELECT p.id, p.user_id, p.city, p.barangay, p.verification_status, p.profile_image_path, u.full_name,
     (SELECT COUNT(*) FROM services s WHERE s.provider_id = p.id) as service_count,
     (SELECT AVG(b.rating) FROM bookings b WHERE b.provider_id = p.id AND b.rating IS NOT NULL) as avg_rating
     FROM providers p
@@ -64,7 +64,7 @@ foreach ($providers as &$p) {
 
 // Debug panel: list all approved providers and reasons they're excluded by current filters
 if (!empty($_GET['debug_providers'])) {
-    $allStmt = $pdo->query("SELECT p.id, u.full_name, p.city, p.barangay, p.profile_image_path, p.face_verified,
+    $allStmt = $pdo->query("SELECT p.id, u.full_name, p.city, p.barangay, p.profile_image_path, p.verification_status,
         (SELECT COUNT(*) FROM services s WHERE s.provider_id = p.id) as service_count,
         (SELECT AVG(b.rating) FROM bookings b WHERE b.provider_id = p.id AND b.rating IS NOT NULL) as avg_rating
         FROM providers p JOIN users u ON p.user_id = u.id WHERE p.verification_status = 'approved'");
@@ -163,7 +163,7 @@ require_once 'includes/header.php';
                 'location' => trim(($p['city'] ?? '') . ', ' . ($p['barangay'] ?? '')),
                 'rate' => isset($p['avg_rating']) ? round((float)$p['avg_rating'], 1) : 0,
                 'sponsored' => !empty($p['sponsored']),
-                'face_verified' => !empty($p['face_verified']),
+                'face_verified' => $p['verification_status'] === 'approved',
             ];
             include __DIR__ . '/includes/provider_card.php';
             ?>

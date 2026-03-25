@@ -20,6 +20,11 @@ if ($isLoggedIn) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($pageTitle) ?> - ServiceLink</title>
     <link rel="stylesheet" href="assets/css/style.css">
+    <script>
+    // Check if face-api.js is available
+    window.faceAPIAvailable = typeof faceapi !== 'undefined';
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
 <nav class="navbar">

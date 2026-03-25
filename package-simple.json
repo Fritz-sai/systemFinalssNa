@@ -1,0 +1,16 @@
+{
+  "name": "servicelink-id-verification-simple",
+  "version": "1.0.0",
+  "description": "Simple ID Verification Backend for ServiceLink (without external OCR/face dependencies)",
+  "main": "id_verification_api_simple.js",
+  "scripts": {
+    "start": "node id_verification_api_simple.js",
+    "dev": "node id_verification_api_simple.js"
+  },
+  "dependencies": {
+    "mysql2": "^3.6.5"
+  },
+  "keywords": ["verification", "id-validation", "mock-ocr"],
+  "author": "",
+  "license": "MIT"
+}

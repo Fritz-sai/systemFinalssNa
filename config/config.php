@@ -188,11 +188,11 @@ function require_provider_documents() {
 
     try {
         $pdo = getDBConnection();
-        $stmt = $pdo->prepare('SELECT selfie_path, id_image_path, business_permit_path, face_verified FROM providers WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT selfie_path, id_image_path, business_permit_path, verification_status FROM providers WHERE id = ?');
         $stmt->execute([$_SESSION['provider_id']]);
         $provider = $stmt->fetch();
 
-        if ($provider && empty($provider['face_verified']) && (empty($provider['selfie_path']) || empty($provider['id_image_path']) || empty($provider['business_permit_path']))) {
+        if ($provider && $provider['verification_status'] !== 'approved' && (empty($provider['selfie_path']) || empty($provider['id_image_path']) || empty($provider['business_permit_path']))) {
             header('Location: face_verification.php');
             exit;
         }

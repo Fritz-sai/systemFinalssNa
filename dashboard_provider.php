@@ -39,11 +39,14 @@ require_once 'includes/header.php';
     
     <div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
         <h3>Account Status</h3>
-        <?php if (!empty($provider['face_verified'])): ?>
+        <?php if ($provider['verification_status'] === 'approved'): ?>
             <p><span class="badge-verified">✓ Verified</span> You have the Verified badge.</p>
-        <?php elseif ((!empty($provider['selfie_path']) || !empty($provider['id_image_path']) || !empty($provider['business_permit_path'])) && empty($provider['face_verified']) && empty($provider['face_verification_rejected'])): ?>
+        <?php elseif ($provider['verification_status'] === 'pending'): ?>
             <p>Face verification: <strong>Under Review</strong></p>
             <p style="color: var(--text-muted); font-size: 0.9rem;">We're reviewing your documents. You'll get the Verified badge once approved.</p>
+        <?php elseif ($provider['verification_status'] === 'rejected'): ?>
+            <p>Face verification: <strong>Rejected</strong></p>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Your verification was rejected. Please check your email or contact support.</p>
         <?php else: ?>
             <p>Face verification: <strong>Not verified</strong></p>
             <p style="color: var(--text-muted); font-size: 0.9rem;">Get the Verified badge to build trust with customers.</p>

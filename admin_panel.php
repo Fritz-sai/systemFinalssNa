@@ -57,14 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Pending = has submitted selfie+ID but not yet face_verified
+// Pending = has submitted all documents but not yet approved
 $pendingProviders = $pdo->query("
     SELECT p.*, u.full_name, u.email, u.phone
     FROM providers p
     JOIN users u ON p.user_id = u.id
-    WHERE p.selfie_path IS NOT NULL AND p.selfie_path != ''
-    AND p.id_image_path IS NOT NULL AND p.id_image_path != ''
-    AND p.face_verified = 0 AND (p.face_verification_rejected = 0 OR p.face_verification_rejected IS NULL)
+    WHERE p.verification_status = 'pending'
     ORDER BY p.created_at ASC
 ")->fetchAll();
 
@@ -81,7 +79,7 @@ $customers = $pdo->query("SELECT id, email, full_name, phone, created_at FROM us
 $stats = [
     'users' => $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn(),
     'providers' => $pdo->query("SELECT COUNT(*) FROM providers")->fetchColumn(),
-    'pending' => $pdo->query("SELECT COUNT(*) FROM providers WHERE selfie_path IS NOT NULL AND id_image_path IS NOT NULL AND face_verified = 0")->fetchColumn(),
+    'pending' => $pdo->query("SELECT COUNT(*) FROM providers WHERE verification_status = 'pending'")->fetchColumn(),
     'ads' => $pdo->query("SELECT COUNT(*) FROM ads WHERE status = 'active'")->fetchColumn(),
 ];
 
@@ -125,8 +123,10 @@ require_once 'includes/header.php';
             <h3><?= htmlspecialchars($p['full_name']) ?></h3>
             <p><?= htmlspecialchars($p['email']) ?> | <?= htmlspecialchars($p['phone']) ?></p>
             <p><?= htmlspecialchars($p['city']) ?>, <?= htmlspecialchars($p['barangay']) ?></p>
+            <?php if ($p['reference_photo_path']): ?><p><a href="<?= htmlspecialchars($p['reference_photo_path']) ?>" target="_blank">View Reference Photo</a></p><?php endif; ?>
             <?php if ($p['selfie_path']): ?><p><a href="<?= htmlspecialchars($p['selfie_path']) ?>" target="_blank">View Selfie</a></p><?php endif; ?>
             <?php if ($p['id_image_path']): ?><p><a href="<?= htmlspecialchars($p['id_image_path']) ?>" target="_blank">View ID</a></p><?php endif; ?>
+            <?php if ($p['business_permit_path']): ?><p><a href="<?= htmlspecialchars($p['business_permit_path']) ?>" target="_blank">View Business Permit</a></p><?php endif; ?>
             <form method="POST" style="margin-top: 1rem;">
                 <input type="hidden" name="provider_id" value="<?= $p['id'] ?>">
                 <div class="form-group">

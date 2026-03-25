@@ -9,7 +9,7 @@ $categories = $pdo->query("SELECT * FROM service_categories ORDER BY name")->fet
 
 // Get featured/sponsored providers (paid ads)
 $featuredStmt = $pdo->query("
-    SELECT p.id, p.user_id, p.city, p.barangay, p.face_verified, p.profile_image_path, u.full_name,
+    SELECT p.id, p.user_id, p.city, p.barangay, p.verification_status, p.profile_image_path, u.full_name,
            (SELECT COUNT(*) FROM services s WHERE s.provider_id = p.id) as service_count,
            (SELECT AVG(b.rating) FROM bookings b WHERE b.provider_id = p.id AND b.rating IS NOT NULL) as avg_rating
     FROM providers p
@@ -24,7 +24,7 @@ $featuredProviders = $featuredStmt ? $featuredStmt->fetchAll() : [];
 // Get regular verified providers (non-sponsored) for "new in area" - use session city if available
 $userCity = $_SESSION['user_city'] ?? '';
 $newProvidersStmt = $pdo->prepare("
-    SELECT p.id, p.user_id, p.city, p.barangay, p.face_verified, p.profile_image_path, u.full_name,
+    SELECT p.id, p.user_id, p.city, p.barangay, p.verification_status, p.profile_image_path, u.full_name,
            (SELECT COUNT(*) FROM services s WHERE s.provider_id = p.id) as service_count,
            (SELECT AVG(b.rating) FROM bookings b WHERE b.provider_id = p.id AND b.rating IS NOT NULL) as avg_rating
     FROM providers p
@@ -76,7 +76,7 @@ require_once 'includes/header.php';
                 'location' => trim(($p['city'] ?? '') . ', ' . ($p['barangay'] ?? '')),
                 'rate' => isset($p['avg_rating']) ? round((float)$p['avg_rating'],1) : 0,
                 'sponsored' => true,
-                'face_verified' => !empty($p['face_verified']),
+                'face_verified' => $p['verification_status'] === 'approved',
             ];
             include __DIR__ . '/includes/provider_card.php';
             ?>
@@ -102,7 +102,7 @@ require_once 'includes/header.php';
                 'location' => trim(($p['city'] ?? '') . ', ' . ($p['barangay'] ?? '')),
                 'rate' => isset($p['avg_rating']) ? round((float)$p['avg_rating'],1) : 0,
                 'sponsored' => false,
-                'face_verified' => !empty($p['face_verified']),
+                'face_verified' => $p['verification_status'] === 'approved',
             ];
             include __DIR__ . '/includes/provider_card.php';
             ?>
