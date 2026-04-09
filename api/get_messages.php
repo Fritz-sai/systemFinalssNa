@@ -52,9 +52,21 @@ $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND type =
 
 $result = [];
 foreach ($messages as $m) {
+    // Check if message is a service message (JSON with type='service' or type='service_status')
+    $messageContent = $m['message'];
+    $decoded = json_decode($messageContent, true);
+    
+    if ($decoded && isset($decoded['type']) && ($decoded['type'] === 'service' || $decoded['type'] === 'service_status')) {
+        // It's a service message, keep JSON as-is (don't escape)
+        $displayMessage = $messageContent;
+    } else {
+        // Regular text message, escape HTML
+        $displayMessage = htmlspecialchars($messageContent);
+    }
+    
     $result[] = [
         'id' => $m['id'],
-        'message' => htmlspecialchars($m['message']),
+        'message' => $displayMessage,
         'sender_type' => $m['sender_type'],
         'sender_name' => $m['full_name'],
         'created_at' => date('M j, g:i A', strtotime($m['created_at']))
