@@ -11,12 +11,63 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'customer') {
 $pdo = getDBConnection();
 $userId = $_SESSION['user_id'];
 
+$error = '';
+$success = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $city = trim($_POST['city'] ?? '');
+    $barangay = trim($_POST['barangay'] ?? '');
+
+    if ($city === '' || $barangay === '') {
+        $error = 'City and barangay are required.';
+    } else {
+        $profileImagePath = null;
+        $imgStmt = $pdo->prepare("SELECT profile_image_path FROM users WHERE id = ?");
+        $imgStmt->execute([$userId]);
+        $profileImagePath = $imgStmt->fetchColumn() ?: null;
+
+        if (!empty($_FILES['profile_image']['name'])) {
+            $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+            $ext = strtolower(pathinfo($_FILES['profile_image']['name'], PATHINFO_EXTENSION));
+            $size = (int)($_FILES['profile_image']['size'] ?? 0);
+
+            if (!in_array($ext, $allowedExt, true)) {
+                $error = 'Profile picture must be JPG, JPEG, PNG, or WEBP.';
+            } elseif ($size > 5 * 1024 * 1024) {
+                $error = 'Profile picture must be 5MB or smaller.';
+            } elseif (!is_uploaded_file($_FILES['profile_image']['tmp_name'])) {
+                $error = 'Invalid profile picture upload.';
+            } else {
+                $uploadDir = __DIR__ . '/uploads/customers';
+                if (!is_dir($uploadDir)) {
+                    @mkdir($uploadDir, 0777, true);
+                }
+                $filename = 'customer_' . $userId . '_' . time() . '.' . $ext;
+                $targetAbs = $uploadDir . '/' . $filename;
+                $targetRel = 'uploads/customers/' . $filename;
+                if (move_uploaded_file($_FILES['profile_image']['tmp_name'], $targetAbs)) {
+                    $profileImagePath = $targetRel;
+                } else {
+                    $error = 'Failed to upload profile picture.';
+                }
+            }
+        }
+
+        if ($error === '') {
+            $pdo->prepare("UPDATE users SET city = ?, barangay = ?, profile_image_path = ? WHERE id = ?")
+                ->execute([$city, $barangay, $profileImagePath, $userId]);
+            $_SESSION['user_city'] = $city;
+            $success = 'Profile updated successfully.';
+        }
+    }
+}
+
 // Get user's location if set
 $userStmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch();
 
-$location = $_SESSION['user_city'] ?? '';
+$location = $user['city'] ?? ($_SESSION['user_city'] ?? '');
 $categories = $pdo->query("SELECT * FROM service_categories ORDER BY name")->fetchAll();
 
 // My Bookings (with completion confirmation and rating)
@@ -48,12 +99,40 @@ require_once 'includes/header.php';
 ?>
 <section style="padding: 2rem;">
     <h1 class="section-title">Welcome, <?= htmlspecialchars($_SESSION['full_name']) ?>!</h1>
-    
-    <div class="form-group" style="max-width: 400px; margin-bottom: 2rem;">
-        <label>Your Location (for "New in Your Area")</label>
-        <form method="POST" action="api/set_location.php" style="display:flex; gap:0.5rem;">
-            <input type="text" name="city" placeholder="City" value="<?= htmlspecialchars($location) ?>" style="flex:1;">
-            <button type="submit" class="btn btn-primary">Save</button>
+
+    <?php if ($success): ?>
+        <div class="card" style="padding: 1rem; border-left: 4px solid #2ECC71; margin-bottom: 1rem;">
+            <strong style="color:#2ECC71;"><?= htmlspecialchars($success) ?></strong>
+        </div>
+    <?php endif; ?>
+    <?php if ($error): ?>
+        <div class="card" style="padding: 1rem; border-left: 4px solid #e74c3c; margin-bottom: 1rem;">
+            <strong style="color:#e74c3c;"><?= htmlspecialchars($error) ?></strong>
+        </div>
+    <?php endif; ?>
+
+    <div class="card" style="max-width: 640px; margin-bottom: 2rem; padding: 1.25rem;">
+        <h2 style="margin-bottom: 1rem; font-size: 1.1rem;">My Profile Settings</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Profile Picture</label>
+                <?php if (!empty($user['profile_image_path'])): ?>
+                    <div style="margin-bottom: 0.75rem;">
+                        <img src="<?= htmlspecialchars($user['profile_image_path']) ?>" alt="Profile picture" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-color);">
+                    </div>
+                <?php endif; ?>
+                <input type="file" name="profile_image" accept="image/*">
+                <small style="color: var(--text-muted);">JPG, PNG, or WEBP. Max size: 5MB.</small>
+            </div>
+            <div class="form-group">
+                <label>City</label>
+                <input type="text" name="city" placeholder="City / Municipality" value="<?= htmlspecialchars($user['city'] ?? $location) ?>" required>
+            </div>
+            <div class="form-group">
+                <label>Barangay</label>
+                <input type="text" name="barangay" placeholder="Barangay" value="<?= htmlspecialchars($user['barangay'] ?? '') ?>" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Profile</button>
         </form>
     </div>
 
@@ -132,43 +211,7 @@ require_once 'includes/header.php';
         </div>
     <?php endif; ?>
 
-    <h2 class="section-title">Find Services</h2>
-    <form action="filter_results.php" method="GET" class="search-box" style="margin-bottom: 2rem;">
-        <input type="text" name="location" placeholder="City or Barangay...">
-        <select name="category">
-            <option value="">All Categories</option>
-            <?php foreach ($categories as $c): ?>
-                <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
-            <?php endforeach; ?>
-        </select>
-        <select name="rating">
-            <option value="">Any Rating</option>
-            <option value="4">4+ Stars</option>
-            <option value="4.5">4.5+ Stars</option>
-        </select>
-        <button type="submit" class="btn btn-primary">Search</button>
-    </form>
-
-    <h2 class="section-title">Service Providers</h2>
-    <div class="provider-grid">
-        <?php foreach ($providers as $p): ?>
-        <a href="provider_profile.php?id=<?= $p['id'] ?>" class="card provider-card" style="text-decoration: none; color: inherit;">
-            <div class="card-image" style="overflow:hidden;">
-                <?php if (!empty($p['profile_image_path'])): ?>
-                    <img src="<?= htmlspecialchars($p['profile_image_path']) ?>" alt="Provider photo" style="width:100%; height:100%; object-fit:cover; display:block;">
-                <?php else: ?>
-                    👤
-                <?php endif; ?>
-            </div>
-            <div class="card-body">
-                <h3><?= htmlspecialchars($p['full_name']) ?></h3>
-                <div class="rating">★ 4.5</div>
-                <div class="location"><?= htmlspecialchars($p['city']) ?>, <?= htmlspecialchars($p['barangay']) ?></div>
-                <a href="chat.php?provider=<?= $p['id'] ?>" class="btn btn-outline" style="margin-top: 0.75rem;">Message</a>
-            </div>
-        </a>
-        <?php endforeach; ?>
-    </div>
+    
 </section>
 
 <script>

@@ -1,6 +1,9 @@
 <?php
 if (!isset($pageTitle)) $pageTitle = 'ServiceLink';
 $isLoggedIn = isset($_SESSION['user_id']);
+$currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: 'index.php');
+$userRole = $isLoggedIn ? (string)($_SESSION['role'] ?? '') : '';
+$roleLabel = $userRole !== '' ? ucfirst($userRole) : '';
 $unreadNotifications = 0;
 if ($isLoggedIn) {
     try {
@@ -28,18 +31,23 @@ if ($isLoggedIn) {
 </head>
 <body>
 <nav class="navbar">
-    <a href="index.php" class="navbar-brand">Service<span>Link</span></a>
+    <div class="navbar-brand-wrap">
+        <?php if ($roleLabel !== ''): ?>
+            <span class="role-pill role-<?= htmlspecialchars($userRole) ?>"><?= htmlspecialchars($roleLabel) ?></span>
+        <?php endif; ?>
+        <a href="index.php" class="navbar-brand">Service<span>Link</span></a>
+    </div>
     <div class="nav-links">
-        <a href="index.php">Home</a>
-        <a href="filter_results.php">Find Services</a>
+        <a class="nav-link <?= $currentPage === 'index.php' ? 'active' : '' ?>" href="index.php">Home</a>
+        <a class="nav-link <?= $currentPage === 'filter_results.php' ? 'active' : '' ?>" href="filter_results.php">Find Services</a>
         <?php if (!$isLoggedIn): ?>
-            <a href="register.php">Become a Provider</a>
+            <a class="nav-link <?= $currentPage === 'register.php' ? 'active' : '' ?>" href="register.php">Become a Provider</a>
         <?php endif; ?>
         <?php if ($isLoggedIn): ?>
             <?php if ($_SESSION['role'] === 'customer'): ?>
-                <a href="dashboard_customer.php">My Profile</a>
+                <a class="nav-link <?= $currentPage === 'dashboard_customer.php' ? 'active' : '' ?>" href="dashboard_customer.php">My Profile</a>
             <?php elseif ($_SESSION['role'] === 'provider'): ?>
-                <a href="provider_profile.php?id=<?= $_SESSION['provider_id'] ?>">My Profile</a>
+                <a class="nav-link <?= $currentPage === 'provider_profile.php' ? 'active' : '' ?>" href="provider_profile.php?id=<?= $_SESSION['provider_id'] ?>">My Profile</a>
                 <?php
                 $headerCredits = 0;
                 try {
@@ -48,12 +56,12 @@ if ($isLoggedIn) {
                     $headerCredits = (int)($hc->fetchColumn() ?: 0);
                 } catch (Throwable $e) { }
                 ?>
-                <a href="buy_credits.php">Credits: <strong><?= $headerCredits ?></strong></a>
-                <a href="face_verification.php">Get Verified</a>
+                <a class="nav-link <?= $currentPage === 'buy_credits.php' ? 'active' : '' ?>" href="buy_credits.php">Credits: <strong><?= $headerCredits ?></strong></a>
+                <a class="nav-link <?= $currentPage === 'face_verification.php' ? 'active' : '' ?>" href="face_verification.php">Get Verified</a>
             <?php elseif ($_SESSION['role'] === 'admin'): ?>
-                <a href="admin_panel.php">Admin</a>
+                <a class="nav-link <?= $currentPage === 'admin_panel.php' ? 'active' : '' ?>" href="admin_panel.php">Admin</a>
             <?php endif; ?>
-            <a href="chat.php" style="position: relative;">
+            <a class="nav-link <?= $currentPage === 'chat.php' ? 'active' : '' ?>" href="chat.php" style="position: relative;">
                 Chat
                 <span id="chat-unread-badge" class="badge-notif" style="<?= $unreadNotifications > 0 ? '' : 'display:none' ?>">
                     <?= (int)$unreadNotifications ?>

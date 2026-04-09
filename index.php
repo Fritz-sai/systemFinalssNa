@@ -6,6 +6,8 @@ $pdo = getDBConnection();
 
 // Get categories for dropdown
 $categories = $pdo->query("SELECT * FROM service_categories ORDER BY name")->fetchAll();
+$cities = $pdo->query("SELECT DISTINCT city FROM providers WHERE city IS NOT NULL AND city <> '' ORDER BY city")->fetchAll(PDO::FETCH_COLUMN);
+$barangays = $pdo->query("SELECT DISTINCT barangay FROM providers WHERE barangay IS NOT NULL AND barangay <> '' ORDER BY barangay")->fetchAll(PDO::FETCH_COLUMN);
 
 // Get featured/sponsored providers (paid ads)
 $featuredStmt = $pdo->query("
@@ -44,16 +46,28 @@ require_once 'includes/header.php';
     <div class="hero-content fade-in">
         <h1>Find Trusted Services Near You</h1>
         <p>Connect with verified local service providers. Book plumbers, electricians, tutors, and more with confidence.</p>
-        <form id="search-form" action="filter_results.php" method="GET" class="search-box">
-            <input type="text" id="search-location" name="location" placeholder="Enter city or barangay..." value="<?= htmlspecialchars($_GET['location'] ?? '') ?>">
-            <select id="search-category" name="category">
-                <option value="">All Categories</option>
+        <form id="search-form" action="filter_results.php" method="GET" class="search-box home-search-box">
+            <select id="search-category" name="category" aria-label="Select a service">
+                <option value="">Select a Service</option>
                 <?php foreach ($categories as $cat): ?>
                     <option value="<?= $cat['id'] ?>" <?= ($_GET['category'] ?? '') == $cat['id'] ? 'selected' : '' ?>>
                         <?= htmlspecialchars($cat['name']) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
+            <select id="search-city" aria-label="Select city">
+                <option value="">Select City</option>
+                <?php foreach ($cities as $city): ?>
+                    <option value="<?= htmlspecialchars($city) ?>"><?= htmlspecialchars($city) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <select id="search-barangay" aria-label="Select barangay">
+                <option value="">Select Barangay</option>
+                <?php foreach ($barangays as $barangay): ?>
+                    <option value="<?= htmlspecialchars($barangay) ?>"><?= htmlspecialchars($barangay) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <input type="hidden" id="search-location" name="location" value="<?= htmlspecialchars($_GET['location'] ?? '') ?>">
             <button type="submit" class="btn btn-primary">Search</button>
         </form>
     </div>
@@ -114,3 +128,19 @@ require_once 'includes/header.php';
 </section>
 
 <?php require_once 'includes/footer.php'; ?>
+<script>
+(function () {
+    const cityEl = document.getElementById('search-city');
+    const barangayEl = document.getElementById('search-barangay');
+    const locationEl = document.getElementById('search-location');
+    const formEl = document.getElementById('search-form');
+    if (!cityEl || !barangayEl || !locationEl || !formEl) return;
+
+    formEl.addEventListener('submit', function () {
+        const city = (cityEl.value || '').trim();
+        const barangay = (barangayEl.value || '').trim();
+        const location = [city, barangay].filter(Boolean).join(', ');
+        locationEl.value = location;
+    });
+})();
+</script>

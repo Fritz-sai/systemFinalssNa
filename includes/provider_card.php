@@ -23,8 +23,16 @@ $avatar = htmlspecialchars($avatarPath);
 $location = isset($provider['location']) ? htmlspecialchars((string)$provider['location']) : '—';
 $rate = isset($provider['rate']) ? number_format((float)$provider['rate'], 1) : '0.0';
 $id = urlencode($provider['id'] ?? '');
+$profileHref = 'provider_profile.php?id=' . $id;
 ?>
-<div class="card provider-card">
+<div
+    class="card provider-card provider-card--clickable"
+    role="link"
+    tabindex="0"
+    aria-label="View <?= $name ?> profile"
+    onclick="window.location.href='<?= htmlspecialchars($profileHref) ?>'"
+    onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.location.href='<?= htmlspecialchars($profileHref) ?>'; }"
+>
     <div class="provider-card-image">
         <img src="<?= $avatar ?>" alt="<?= $name ?>">
     </div>
@@ -36,7 +44,7 @@ $id = urlencode($provider['id'] ?? '');
             <span class="rate-label">/ NCR</span>
         </div>
         <div class="provider-location-display"><?= $location ?></div>
-        <a href="chat.php?provider=<?= $id ?>" class="btn btn-primary btn-message">Message</a>
+        <a href="chat.php?provider=<?= $id ?>" class="btn btn-primary btn-message" onclick="event.stopPropagation()">Message</a>
     </div>
 </div>
 

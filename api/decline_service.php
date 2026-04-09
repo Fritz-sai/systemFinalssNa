@@ -20,6 +20,7 @@ if (!$chatId || !$serviceId) {
 }
 
 $pdo = getDBConnection();
+try {
 
 // Verify chat belongs to this customer
 $chatStmt = $pdo->prepare("SELECT id, provider_id FROM chats WHERE id = ? AND customer_id = ?");
@@ -57,10 +58,15 @@ if ($alreadyResponded) {
     exit;
 }
 
-// Create a record of the service decline
+// Create/update service response (unique key is chat_id + service_id)
 $insertStmt = $pdo->prepare("
     INSERT INTO service_acceptances (chat_id, service_id, customer_id, provider_id, status, accepted_at)
     VALUES (?, ?, ?, ?, 'declined', NOW())
+    ON DUPLICATE KEY UPDATE
+        customer_id = VALUES(customer_id),
+        provider_id = VALUES(provider_id),
+        status = 'declined',
+        accepted_at = NOW()
 ");
 $insertStmt->execute([$chatId, $serviceId, $userId, $chat['provider_id']]);
 
@@ -106,3 +112,6 @@ if ($providerRow) {
 }
 
 echo json_encode(['success' => true]);
+} catch (Throwable $e) {
+    echo json_encode(['error' => 'Failed to decline service. Please try again.']);
+}

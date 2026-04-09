@@ -195,6 +195,17 @@ require_once 'includes/header.php';
             </div>
             
             <form id="inline-review-form" enctype="multipart/form-data">
+                <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px;">
+                    <div style="margin-bottom: 0.5rem;">
+                        <label style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Service:</label>
+                        <div id="review-service-name" style="color: var(--text-dark);">Loading...</div>
+                    </div>
+                    <div>
+                        <label style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Price:</label>
+                        <div id="review-service-price" style="color: var(--text-dark);">Loading...</div>
+                    </div>
+                </div>
+
                 <div style="margin-bottom: 1rem;">
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem;">Rating:</label>
                     <select name="rating" required style="padding: 0.5rem; width: 100%; border: 1px solid var(--border-color); border-radius: 4px;">
@@ -632,105 +643,139 @@ document.getElementById('unlock-modal-cancel')?.addEventListener('click', functi
     if (modal) modal.style.display = 'none';
 });
 
-// Review Modal Handlers (for customers)
-if (isCustomer) {
-    let activeBookingId = null;
-    
-    // Get active booking ID from chat
-    function getActiveBookingId() {
-        if (activeBookingId) return activeBookingId;
-        // Will be set when we load the chat details
-        return null;
+loadContactStatus();
+";
     }
-    
-    // Open review modal
-    document.getElementById('review-btn')?.addEventListener('click', function() {
-        const modal = document.getElementById('review-modal');
-        if (modal) {
-            modal.style.display = 'flex';
-            // Reset form
-            document.getElementById('inline-review-form').reset();
-            document.getElementById('inline-photo-preview').style.display = 'none';
-        }
-    });
-    
-    // Close review modal buttons
-    document.getElementById('close-review-modal')?.addEventListener('click', function() {
-        const modal = document.getElementById('review-modal');
-        if (modal) modal.style.display = 'none';
-    });
-    
-    document.getElementById('cancel-review-modal')?.addEventListener('click', function() {
-        const modal = document.getElementById('review-modal');
-        if (modal) modal.style.display = 'none';
-    });
-    
-    // Photo preview handler
-    const photoInput = document.querySelector('input[name=\"review_photo\"]');
-    if (photoInput) {
-        photoInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const preview = document.getElementById('inline-photo-preview');
-                    const img = document.getElementById('inline-img-preview');
-                    if (preview && img) {
-                        img.src = event.target.result;
-                        preview.style.display = 'block';
-                    }
-                };
-                reader.readAsDataURL(file);
+
+    if ($role === 'customer') {
+        $extraJs .= "
+// Review Modal Handlers (for customers)
+let activeBookingId = null;
+
+function formatPhpPrice(minPrice, maxPrice) {
+    const min = Number(minPrice);
+    const max = Number(maxPrice);
+    if (minPrice == null || maxPrice == null || Number.isNaN(min) || Number.isNaN(max)) return 'Not available';
+    if (min === max) return 'PHP ' + min.toFixed(2);
+    return 'PHP ' + min.toFixed(2) + ' - PHP ' + max.toFixed(2);
+}
+
+function fillReviewBookingInfo(data) {
+    const serviceEl = document.getElementById('review-service-name');
+    const priceEl = document.getElementById('review-service-price');
+    if (serviceEl) serviceEl.textContent = data.service_title || 'Not available';
+    if (priceEl) priceEl.textContent = formatPhpPrice(data.price_min, data.price_max);
+}
+
+function loadReviewBookingInfo() {
+    return fetch('api/get_booking_for_chat.php?chat_id=' + chatId)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.booking_id) {
+                throw new Error(data.error || 'No booking found');
             }
+            activeBookingId = data.booking_id;
+            fillReviewBookingInfo(data);
+            return data;
+        });
+}
+
+// Open review modal
+document.getElementById('review-btn')?.addEventListener('click', function() {
+    const modal = document.getElementById('review-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        // Reset form
+        document.getElementById('inline-review-form').reset();
+        document.getElementById('inline-photo-preview').style.display = 'none';
+        const serviceEl = document.getElementById('review-service-name');
+        const priceEl = document.getElementById('review-service-price');
+        if (serviceEl) serviceEl.textContent = 'Loading...';
+        if (priceEl) priceEl.textContent = 'Loading...';
+        loadReviewBookingInfo().catch(function(err) {
+            if (serviceEl) serviceEl.textContent = 'Not available';
+            if (priceEl) priceEl.textContent = 'Not available';
+            alert(err.message || 'Could not load booking details.');
         });
     }
-    
-    // Form submission
-    document.getElementById('inline-review-form')?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // Get booking ID from chat - query the database
-        fetch('api/get_booking_for_chat.php?chat_id=' + chatId)
-            .then(r => r.json())
-            .then(data => {
-                if (!data.booking_id) {
-                    alert('Could not find booking. Please try again.');
-                    return;
+});
+
+// Close review modal buttons
+document.getElementById('close-review-modal')?.addEventListener('click', function() {
+    const modal = document.getElementById('review-modal');
+    if (modal) modal.style.display = 'none';
+});
+
+document.getElementById('cancel-review-modal')?.addEventListener('click', function() {
+    const modal = document.getElementById('review-modal');
+    if (modal) modal.style.display = 'none';
+});
+
+// Photo preview handler
+const photoInput = document.querySelector('input[name=\"review_photo\"]');
+if (photoInput) {
+    photoInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const preview = document.getElementById('inline-photo-preview');
+                const img = document.getElementById('inline-img-preview');
+                if (preview && img) {
+                    img.src = event.target.result;
+                    preview.style.display = 'block';
                 }
-                
-                activeBookingId = data.booking_id;
-                const formData = new FormData(e.target);
-                formData.append('booking_id', activeBookingId);
-                formData.append('agreed', '1');
-                
-                const btn = e.target.querySelector('button[type=\"submit\"]');
-                if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
-                
-                fetch('api/confirm_booking.php', { method: 'POST', body: formData })
-                    .then(r => r.json())
-                    .then(function(res) {
-                        if (res.success) {
-                            alert('Review submitted successfully!');
-                            const modal = document.getElementById('review-modal');
-                            if (modal) modal.style.display = 'none';
-                            loadMessages(); // Refresh chat
-                        } else {
-                            alert(res.error || 'Failed to submit review');
-                        }
-                        if (btn) { btn.disabled = false; btn.textContent = 'Submit Review'; }
-                    })
-                    .catch(function(err) {
-                        alert('Error submitting review');
-                        if (btn) { btn.disabled = false; btn.textContent = 'Submit Review'; }
-                    });
-            })
-            .catch(function() {
-                alert('Error fetching booking information');
-            });
+            };
+            reader.readAsDataURL(file);
+        }
     });
 }
 
-loadContactStatus();
+// Form submission
+document.getElementById('inline-review-form')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const submitReview = function() {
+            if (!activeBookingId) {
+                alert('Could not find booking. Please try again.');
+                return;
+            }
+            const formData = new FormData(e.target);
+            formData.append('booking_id', activeBookingId);
+            formData.append('agreed', '1');
+
+            const btn = e.target.querySelector('button[type=\"submit\"]');
+            if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+
+            fetch('api/confirm_booking.php', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(function(res) {
+                    if (res.success) {
+                        alert('Review submitted successfully!');
+                        const modal = document.getElementById('review-modal');
+                        if (modal) modal.style.display = 'none';
+                        loadMessages();
+                    } else {
+                        alert(res.error || 'Failed to submit review');
+                    }
+                    if (btn) { btn.disabled = false; btn.textContent = 'Submit Review'; }
+                })
+                .catch(function() {
+                    alert('Error submitting review');
+                    if (btn) { btn.disabled = false; btn.textContent = 'Submit Review'; }
+                });
+    };
+
+    if (activeBookingId) {
+        submitReview();
+    } else {
+        loadReviewBookingInfo()
+            .then(submitReview)
+            .catch(function() {
+                alert('Error fetching booking information');
+            });
+    }
+});
 ";
     }
 

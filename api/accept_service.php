@@ -20,9 +20,11 @@ if (!$chatId || !$serviceId) {
 }
 
 $pdo = getDBConnection();
+try {
+    $pdo->beginTransaction();
 
 // Verify chat belongs to this customer
-$chatStmt = $pdo->prepare("SELECT id, provider_id FROM chats WHERE id = ? AND customer_id = ?");
+$chatStmt = $pdo->prepare("SELECT id, provider_id, service_id FROM chats WHERE id = ? AND customer_id = ?");
 $chatStmt->execute([$chatId, $userId]);
 $chat = $chatStmt->fetch();
 if (!$chat) {
@@ -57,10 +59,15 @@ if ($alreadyResponded) {
     exit;
 }
 
-// Create a record of the service acceptance
+// Create/update service acceptance (unique key is chat_id + service_id)
 $insertStmt = $pdo->prepare("
     INSERT INTO service_acceptances (chat_id, service_id, customer_id, provider_id, status, accepted_at)
     VALUES (?, ?, ?, ?, 'accepted', NOW())
+    ON DUPLICATE KEY UPDATE
+        customer_id = VALUES(customer_id),
+        provider_id = VALUES(provider_id),
+        status = 'accepted',
+        accepted_at = NOW()
 ");
 $insertStmt->execute([$chatId, $serviceId, $userId, $chat['provider_id']]);
 
@@ -68,6 +75,25 @@ $insertStmt->execute([$chatId, $serviceId, $userId, $chat['provider_id']]);
 $creditCost = 5;
 $creditStmt = $pdo->prepare("UPDATE providers SET credits = GREATEST(0, COALESCE(credits, 0) - ?) WHERE id = ?");
 $creditStmt->execute([$creditCost, $chat['provider_id']]);
+
+// Ensure there is a booking row for this accepted service (needed for review flow)
+$bookingStmt = $pdo->prepare("
+    SELECT id FROM bookings
+    WHERE customer_id = ? AND provider_id = ? AND service_id = ? AND status <> 'cancelled'
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+");
+$bookingStmt->execute([$userId, $chat['provider_id'], $serviceId]);
+$bookingId = (int)($bookingStmt->fetchColumn() ?: 0);
+
+if (!$bookingId) {
+    $createBooking = $pdo->prepare("
+        INSERT INTO bookings (customer_id, provider_id, service_id, status, scheduled_date, notes)
+        VALUES (?, ?, ?, 'confirmed', NULL, 'Booked via chat acceptance')
+    ");
+    $createBooking->execute([$userId, $chat['provider_id'], $serviceId]);
+    $bookingId = (int)$pdo->lastInsertId();
+}
 
 // Get service name for the status message
 $serviceNameStmt = $pdo->prepare("SELECT title FROM services WHERE id = ?");
@@ -115,4 +141,11 @@ if ($providerRow) {
     ]);
 }
 
-echo json_encode(['success' => true]);
+    $pdo->commit();
+    echo json_encode(['success' => true, 'booking_id' => $bookingId]);
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    echo json_encode(['error' => 'Failed to accept service. Please try again.']);
+}
