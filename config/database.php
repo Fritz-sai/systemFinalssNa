@@ -69,6 +69,28 @@ function getDBConnection() {
                 }
             } catch (Throwable $e) { /* ignore */ }
 
+            try {
+                $col = $pdo->prepare("
+                    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'password_reset_token'
+                ");
+                $col->execute([DB_NAME]);
+                if ((int)$col->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE users ADD COLUMN password_reset_token VARCHAR(255) NULL");
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
+            try {
+                $col = $pdo->prepare("
+                    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'password_reset_expires'
+                ");
+                $col->execute([DB_NAME]);
+                if ((int)$col->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE users ADD COLUMN password_reset_expires DATETIME NULL");
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
             // Business permit path (provider document requirement)
             try {
                 $col = $pdo->prepare("

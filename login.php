@@ -71,6 +71,9 @@ require_once 'includes/header.php';
             <button type="submit" class="btn btn-primary" style="width:100%; margin-top:1rem;">Login</button>
         </form>
         <p style="text-align:center; margin-top:1rem; color:var(--text-muted);">
+            <a href="forgot_password.php">Forgot Password?</a>
+        </p>
+        <p style="text-align:center; margin-top:0.5rem; color:var(--text-muted);">
             Don't have an account? <a href="register.php">Register</a>
         </p>
     </div>

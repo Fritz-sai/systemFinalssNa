@@ -1,3 +1,4 @@
+
 <?php
 $pageTitle = 'Customer Dashboard';
 require_once 'config/config.php';

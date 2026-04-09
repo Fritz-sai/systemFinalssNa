@@ -9,6 +9,8 @@ CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    password_reset_token VARCHAR(255) NULL,
+    password_reset_expires DATETIME NULL,
     full_name VARCHAR(255) NOT NULL,
     phone VARCHAR(20) NOT NULL,
     role ENUM('customer', 'provider', 'admin') NOT NULL DEFAULT 'customer',
