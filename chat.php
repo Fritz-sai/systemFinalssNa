@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $chatId = (int)($_GET['chat'] ?? 0);
-$providerId = (int)($_GET['provider'] ?? 0);
+$providerId = (int)($_GET['provider'] ?? ($_GET['to'] ?? 0));
 $userId = $_SESSION['user_id'];
 $role = $_SESSION['role'];
 $pdo = getDBConnection();
@@ -24,7 +24,7 @@ if ($role === 'customer') {
         FROM chats c
         JOIN providers pr ON c.provider_id = pr.id
         JOIN users u ON pr.user_id = u.id
-        WHERE c.customer_id = ?
+        WHERE c.customer_id = ? AND c.archived = 0
         ORDER BY c.updated_at DESC
     ");
     $stmt->execute([$userId]);
@@ -34,7 +34,7 @@ if ($role === 'customer') {
                u.full_name, (SELECT message FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_msg
         FROM chats c
         JOIN users u ON c.customer_id = u.id
-        WHERE c.provider_id = ?
+        WHERE c.provider_id = ? AND c.archived = 0
         ORDER BY c.updated_at DESC
     ");
     $stmt->execute([$_SESSION['provider_id'] ?? 0]);
@@ -57,7 +57,7 @@ if ($providerId && $role === 'customer') {
     $provStmt->execute([$providerId]);
     $provRow = $provStmt->fetch();
     if ($provRow) {
-        $chk = $pdo->prepare("SELECT id FROM chats WHERE customer_id = ? AND provider_id = ?");
+        $chk = $pdo->prepare("SELECT id FROM chats WHERE customer_id = ? AND provider_id = ? AND archived = 0");
         $chk->execute([$userId, $providerId]);
         $existing = $chk->fetch();
         if ($existing) {
@@ -78,10 +78,10 @@ if ($chatId) {
     }
     if (!$activeChat) {
         if ($role === 'customer') {
-            $stmt = $pdo->prepare("SELECT c.id, c.provider_id, u.full_name FROM chats c JOIN providers pr ON c.provider_id = pr.id JOIN users u ON pr.user_id = u.id WHERE c.id = ? AND c.customer_id = ?");
+            $stmt = $pdo->prepare("SELECT c.id, c.provider_id, u.full_name FROM chats c JOIN providers pr ON c.provider_id = pr.id JOIN users u ON pr.user_id = u.id WHERE c.id = ? AND c.customer_id = ? AND c.archived = 0");
             $stmt->execute([$chatId, $userId]);
         } else {
-            $stmt = $pdo->prepare("SELECT c.id, c.provider_id, u.full_name FROM chats c JOIN users u ON c.customer_id = u.id WHERE c.id = ? AND c.provider_id = ?");
+            $stmt = $pdo->prepare("SELECT c.id, c.provider_id, u.full_name FROM chats c JOIN users u ON c.customer_id = u.id WHERE c.id = ? AND c.provider_id = ? AND c.archived = 0");
             $stmt->execute([$chatId, $_SESSION['provider_id']]);
         }
         $activeChat = $stmt->fetch();
@@ -152,6 +152,7 @@ require_once 'includes/header.php';
             <?php if ($activeChat): ?>
             <div class="chat-header">
                 <strong><?= htmlspecialchars($otherName) ?></strong>
+                <button type="button" id="delete-chat-btn" class="btn btn-danger" style="margin-left:auto; font-size:0.9rem; padding:0.5rem 0.75rem;">Delete this conversation</button>
             </div>
             <?php if ($role === 'provider'): ?>
             <div id="contact-unlock-area" style="padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; background: var(--bg-light);">
@@ -172,6 +173,9 @@ require_once 'includes/header.php';
                 <?php endif; ?>
                 <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
                 <button type="button" class="btn btn-primary" id="send-btn">Send</button>
+                <?php if ($role === 'customer'): ?>
+                <button type="button" class="btn btn-outline" id="review-btn" title="Write a review" style="display:none;">✓ Write Review</button>
+                <?php endif; ?>
             </div>
             <?php else: ?>
             <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
@@ -181,8 +185,76 @@ require_once 'includes/header.php';
         </div>
     </div>
     
-    <!-- Service Share Modal -->
+    <!-- Review Modal (for customers) -->
+    <?php if ($role === 'customer'): ?>
+    <div id="review-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:var(--radius); max-width:600px; width:90%; padding:2rem; max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h3 style="margin:0;">Write a Review</h3>
+                <button type="button" id="close-review-modal" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button>
+            </div>
+            
+            <form id="inline-review-form" enctype="multipart/form-data">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: 500; margin-bottom: 0.5rem;">Rating:</label>
+                    <select name="rating" required style="padding: 0.5rem; width: 100%; border: 1px solid var(--border-color); border-radius: 4px;">
+                        <option value="">Choose rating...</option>
+                        <option value="5">★★★★★ 5 - Excellent</option>
+                        <option value="4">★★★★☆ 4 - Good</option>
+                        <option value="3">★★★☆☆ 3 - Okay</option>
+                        <option value="2">★★☆☆☆ 2 - Poor</option>
+                        <option value="1">★☆☆☆☆ 1 - Bad</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: 500; margin-bottom: 0.5rem;">Your Review (optional):</label>
+                    <textarea name="review" placeholder="Share your experience with this provider..." style="padding: 0.5rem; width: 100%; height: 100px; border: 1px solid var(--border-color); border-radius: 4px; font-family: inherit;"></textarea>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: 500; margin-bottom: 0.5rem;">Photo (optional):</label>
+                    <input type="file" name="review_photo" accept="image/*" style="padding: 0.5rem; width: 100%; border: 1px solid var(--border-color); border-radius: 4px;">
+                    <div id="inline-photo-preview" style="margin-top: 0.75rem; display: none;">
+                        <img id="inline-img-preview" style="max-width: 200px; border-radius: 4px;">
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="payment_accepted" required>
+                        <span>I confirm the work is done and payment is acceptable</span>
+                    </label>
+                </div>
+                
+                <div style="display: flex; gap: 1rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Submit Review</button>
+                    <button type="button" id="cancel-review-modal" class="btn btn-outline" style="flex: 1;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
+    
+    <!-- Unlock Customer Modal (for providers) -->
     <?php if ($role === 'provider'): ?>
+    <div id="unlock-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:var(--radius); max-width:400px; width:90%; padding:2rem; text-align:center;">
+            <h3 style="margin-top:0;">Unlock Customer Messages?</h3>
+            <p style="color:var(--text-muted); margin:1rem 0;">Viewing and replying to this customer requires <strong>5 credits</strong>.</p>
+            <div style="background:var(--bg-light); padding:1rem; border-radius:6px; margin-bottom:1.5rem;">
+                <div style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.5rem;">Your Credits:</div>
+                <div style="font-size:1.5rem; font-weight:bold;" id="unlock-modal-credits">0</div>
+            </div>
+            <div style="display:flex; gap:1rem;">
+                <button type="button" id="unlock-modal-cancel" class="btn btn-outline" style="flex:1;">Cancel</button>
+                <button type="button" id="unlock-modal-confirm" class="btn btn-primary" style="flex:1;">Unlock (5 Credits)</button>
+            </div>
+            <a href="buy_credits.php" style="display:block; margin-top:1rem; font-size:0.9rem;">Buy more credits</a>
+        </div>
+    </div>
+    
+    <!-- Service Share Modal -->
     <div id="service-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
         <div style="background:white; border-radius:var(--radius); max-width:500px; width:90%; padding:2rem; max-height:80vh; overflow-y:auto;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
@@ -212,8 +284,12 @@ function loadMessages() {
             const el = document.getElementById('chat-messages');
             if (data.locked) {
                 el.innerHTML = '<div class=\"card\" style=\"padding: 1rem; max-width: 520px;\">' +
-                    '<strong>Locked</strong><div style=\"color: var(--text-muted); margin-top: 0.25rem;\">Unlock this conversation to view the customer\\'s message.</div>' +
+                    '<strong>Messages Locked</strong><div style=\"color: var(--text-muted); margin-top: 0.25rem;\">Click the unlock button above to pay 5 credits and view messages.</div>' +
                     '</div>';
+                // Show unlock modal for providers
+                if (!isCustomer) {
+                    setTimeout(showUnlockModal, 300);
+                }
                 return;
             }
             el.innerHTML = (data.messages || []).map(m => {
@@ -233,6 +309,14 @@ function loadMessages() {
                         messageHtml = '<div style=\"padding:1rem; background:' + statusColor + '; color:white; border-radius:8px; text-align:center; margin:0.5rem 0; font-weight:500;\">' +
                             statusEmoji + ' Service ' + statusText.charAt(0).toUpperCase() + statusText.slice(1) + ': <strong>' + msgData.service_name + '</strong>' +
                             '</div>';
+                        
+                        // Show review button for customers after accepting
+                        if (isCustomer && msgData.action === 'accepted') {
+                            setTimeout(function() {
+                                var reviewBtn = document.getElementById('review-btn');
+                                if (reviewBtn) reviewBtn.style.display = 'block';
+                            }, 100);
+                        }
                         return messageHtml;
                     }
                     
@@ -313,7 +397,32 @@ function sendMessage() {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: 'chat_id=' + chatId + '&message=' + encodeURIComponent(msg)
-    }).then(() => loadMessages());
+    }).then(r => r.json()).then(data => {
+        if (data.error === 'locked') {
+            alert('You need to unlock this customer\'s contact first. Please click the unlock button above to proceed.');
+            loadMessages();
+        } else if (data.success !== false) {
+            loadMessages();
+        }
+    }).catch(() => loadMessages());
+}
+
+function deleteChat() {
+    if (!confirm('Delete this conversation? The chat will be archived and a new conversation will start if you message again.')) return;
+    fetch('api/delete_chat.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'chat_id=' + chatId
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = 'chat.php';
+        } else {
+            alert(data.error || 'Unable to delete conversation');
+        }
+    })
+    .catch(() => alert('Unable to delete conversation'));
 }
 
 function acceptService(serviceId, instanceId) {
@@ -366,6 +475,7 @@ function declineService(serviceId, instanceId) {
 
 document.getElementById('send-btn')?.addEventListener('click', sendMessage);
 document.getElementById('chat-input')?.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
+document.getElementById('delete-chat-btn')?.addEventListener('click', deleteChat);
 
 loadMessages();
 setInterval(loadMessages, 3000);
@@ -456,40 +566,170 @@ function sendServiceMessage(serviceId) {
 
 // Contact unlock for providers
 const unlockCost = " . (int)CREDITS_PER_UNLOCK . ";
+let isUnlocked = false;
+let pendingLoadMessages = false;
+
 function loadContactStatus() {
     const el = document.getElementById('contact-unlock-area');
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
     if (!el) return;
     fetch('api/get_contact_status.php?chat_id=' + chatId)
         .then(r => r.json())
         .then(function(data) {
-            if (data.unlocked && data.contact) {
-                el.innerHTML = '<strong>Contact:</strong> ' + (data.contact.phone || '-') + ' | ' + (data.contact.email || '-');
-                return;
+            isUnlocked = data.unlocked ? true : false;
+            if (isUnlocked && data.contact) {
+                el.innerHTML = '<strong>✓ Contact unlocked:</strong> ' + (data.contact.phone || '-') + ' | ' + (data.contact.email || '-');
+                if (chatInput) chatInput.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+            } else {
+                el.innerHTML = '<strong>Locked:</strong> This customer\'s messages require ' + unlockCost + ' credits to unlock.';
+                if (chatInput) chatInput.disabled = true;
+                if (sendBtn) sendBtn.disabled = true;
+                // Update modal credits display
+                document.getElementById('unlock-modal-credits').textContent = (data.credits || 0);
             }
-            el.innerHTML = '<strong>Credits:</strong> ' + (data.credits || 0) + ' &nbsp;|&nbsp; ' +
-                '<button type=\"button\" id=\"unlock-contact-btn\" class=\"btn btn-primary\" style=\"padding: 0.35rem 0.75rem; font-size: 0.85rem;\">Unlock contact (' + unlockCost + ' credits)</button>' +
-                ' <a href=\"buy_credits.php\" style=\"margin-left: 0.5rem;\">Buy credits</a>';
-            document.getElementById('unlock-contact-btn')?.addEventListener('click', unlockContact);
         })
         .catch(function() { el.innerHTML = 'Could not load.'; });
 }
+
+function showUnlockModal() {
+    const modal = document.getElementById('unlock-modal');
+    if (!modal) return;
+    // Update credits display in modal
+    const el = document.getElementById('contact-unlock-area');
+    if (el && el.textContent.includes('Locked')) {
+        modal.style.display = 'flex';
+    }
+}
+
 function unlockContact() {
-    const btn = document.getElementById('unlock-contact-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Unlocking...'; }
+    const btn = document.getElementById('unlock-modal-confirm');
+    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
     const fd = new FormData(); fd.append('chat_id', chatId);
     fetch('api/unlock_contact.php', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(function(data) {
-            if (data.success) { loadContactStatus(); loadMessages(); }
-            else {
-                alert(data.error || 'Failed');
-                if (btn) { btn.disabled = false; btn.textContent = 'Unlock contact (' + unlockCost + ' credits)'; }
+            if (data.success) {
+                const modal = document.getElementById('unlock-modal');
+                if (modal) modal.style.display = 'none';
+                loadContactStatus();
+                loadMessages();
+            } else {
+                alert(data.error || 'Failed to unlock');
+                if (btn) { btn.disabled = false; btn.textContent = 'Unlock (5 Credits)'; }
             }
         })
         .catch(function() {
-            if (btn) { btn.disabled = false; btn.textContent = 'Unlock contact (' + unlockCost + ' credits)'; }
+            alert('Error unlocking customer');
+            if (btn) { btn.disabled = false; btn.textContent = 'Unlock (5 Credits)'; }
         });
 }
+
+document.getElementById('unlock-modal-confirm')?.addEventListener('click', unlockContact);
+document.getElementById('unlock-modal-cancel')?.addEventListener('click', function() {
+    const modal = document.getElementById('unlock-modal');
+    if (modal) modal.style.display = 'none';
+});
+
+// Review Modal Handlers (for customers)
+if (isCustomer) {
+    let activeBookingId = null;
+    
+    // Get active booking ID from chat
+    function getActiveBookingId() {
+        if (activeBookingId) return activeBookingId;
+        // Will be set when we load the chat details
+        return null;
+    }
+    
+    // Open review modal
+    document.getElementById('review-btn')?.addEventListener('click', function() {
+        const modal = document.getElementById('review-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            // Reset form
+            document.getElementById('inline-review-form').reset();
+            document.getElementById('inline-photo-preview').style.display = 'none';
+        }
+    });
+    
+    // Close review modal buttons
+    document.getElementById('close-review-modal')?.addEventListener('click', function() {
+        const modal = document.getElementById('review-modal');
+        if (modal) modal.style.display = 'none';
+    });
+    
+    document.getElementById('cancel-review-modal')?.addEventListener('click', function() {
+        const modal = document.getElementById('review-modal');
+        if (modal) modal.style.display = 'none';
+    });
+    
+    // Photo preview handler
+    const photoInput = document.querySelector('input[name=\"review_photo\"]');
+    if (photoInput) {
+        photoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const preview = document.getElementById('inline-photo-preview');
+                    const img = document.getElementById('inline-img-preview');
+                    if (preview && img) {
+                        img.src = event.target.result;
+                        preview.style.display = 'block';
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
+    // Form submission
+    document.getElementById('inline-review-form')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Get booking ID from chat - query the database
+        fetch('api/get_booking_for_chat.php?chat_id=' + chatId)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.booking_id) {
+                    alert('Could not find booking. Please try again.');
+                    return;
+                }
+                
+                activeBookingId = data.booking_id;
+                const formData = new FormData(e.target);
+                formData.append('booking_id', activeBookingId);
+                formData.append('agreed', '1');
+                
+                const btn = e.target.querySelector('button[type=\"submit\"]');
+                if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+                
+                fetch('api/confirm_booking.php', { method: 'POST', body: formData })
+                    .then(r => r.json())
+                    .then(function(res) {
+                        if (res.success) {
+                            alert('Review submitted successfully!');
+                            const modal = document.getElementById('review-modal');
+                            if (modal) modal.style.display = 'none';
+                            loadMessages(); // Refresh chat
+                        } else {
+                            alert(res.error || 'Failed to submit review');
+                        }
+                        if (btn) { btn.disabled = false; btn.textContent = 'Submit Review'; }
+                    })
+                    .catch(function(err) {
+                        alert('Error submitting review');
+                        if (btn) { btn.disabled = false; btn.textContent = 'Submit Review'; }
+                    });
+            })
+            .catch(function() {
+                alert('Error fetching booking information');
+            });
+    });
+}
+
 loadContactStatus();
 ";
     }

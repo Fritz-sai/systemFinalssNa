@@ -89,18 +89,37 @@ require_once 'includes/header.php';
                                 <button type="button" class="btn btn-ghost confirm-no" data-id="<?= $b['id'] ?>" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">No</button>
                             </div>
                             <div id="rate-area-<?= $b['id'] ?>" style="display:none;">
-                                <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">Rate this provider:</p>
-                                <form class="rate-form" data-id="<?= $b['id'] ?>">
-                                    <select name="rating" required style="padding: 0.4rem; margin-right: 0.5rem;">
-                                        <option value="">Choose...</option>
-                                        <option value="5">5 - Excellent</option>
-                                        <option value="4">4 - Good</option>
-                                        <option value="3">3 - Okay</option>
-                                        <option value="2">2 - Poor</option>
-                                        <option value="1">1 - Bad</option>
-                                    </select>
-                                    <input type="text" name="review" placeholder="Optional review" style="padding: 0.4rem; max-width: 200px;">
-                                    <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.8rem;">Submit</button>
+                                <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">Rate this provider and service:</p>
+                                <form class="rate-form" data-id="<?= $b['id'] ?>" enctype="multipart/form-data">
+                                    <div style="margin-bottom: 0.75rem;">
+                                        <label style="display: block; font-size: 0.85rem; margin-bottom: 0.25rem;">Rating:</label>
+                                        <select name="rating" required style="padding: 0.4rem; width: 100%;">
+                                            <option value="">Choose rating...</option>
+                                            <option value="5">★★★★★ 5 - Excellent</option>
+                                            <option value="4">★★★★☆ 4 - Good</option>
+                                            <option value="3">★★★☆☆ 3 - Okay</option>
+                                            <option value="2">★★☆☆☆ 2 - Poor</option>
+                                            <option value="1">★☆☆☆☆ 1 - Bad</option>
+                                        </select>
+                                    </div>
+                                    <div style="margin-bottom: 0.75rem;">
+                                        <label style="display: block; font-size: 0.85rem; margin-bottom: 0.25rem;">Review (optional):</label>
+                                        <textarea name="review" placeholder="Share your experience..." style="padding: 0.4rem; width: 100%; height: 60px; font-family: inherit;"></textarea>
+                                    </div>
+                                    <div style="margin-bottom: 0.75rem;">
+                                        <label style="display: block; font-size: 0.85rem; margin-bottom: 0.25rem;">Photo (optional):</label>
+                                        <input type="file" name="review_photo" accept="image/*" style="padding: 0.4rem; width: 100%;">
+                                        <div id="photo-preview-<?= $b['id'] ?>" style="margin-top: 0.5rem; display: none;">
+                                            <img id="img-preview-<?= $b['id'] ?>" style="max-width: 150px; border-radius: 4px;">
+                                        </div>
+                                    </div>
+                                    <div style="margin-bottom: 0.75rem;">
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+                                            <input type="checkbox" name="payment_accepted" required>
+                                            I confirm the work is done and payment is acceptable
+                                        </label>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.8rem; width: 100%;">Submit Review</button>
                                 </form>
                             </div>
                         <?php else: ?>
@@ -186,6 +205,29 @@ document.querySelectorAll('.confirm-no').forEach(function(btn) {
     });
 });
 document.querySelectorAll('.rate-form').forEach(function(form) {
+    var bookingId = form.getAttribute('data-id');
+    
+    // Photo preview handler
+    var photoInput = form.querySelector('input[name="review_photo"]');
+    if (photoInput) {
+        photoInput.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function(event) {
+                    var preview = document.getElementById('photo-preview-' + bookingId);
+                    var img = document.getElementById('img-preview-' + bookingId);
+                    if (preview && img) {
+                        img.src = event.target.result;
+                        preview.style.display = 'block';
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
+    // Form submission
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         var id = this.getAttribute('data-id');
@@ -193,6 +235,7 @@ document.querySelectorAll('.rate-form').forEach(function(form) {
         fd.append('booking_id', id);
         fd.append('agreed', '1');
         if (!fd.get('rating')) { alert('Please choose a rating.'); return; }
+        if (!fd.get('payment_accepted')) { alert('Please confirm the work is done.'); return; }
         fetch('api/confirm_booking.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {

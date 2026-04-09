@@ -36,7 +36,7 @@ $id = urlencode($provider['id'] ?? '');
             <span class="rate-label">/ NCR</span>
         </div>
         <div class="provider-location-display"><?= $location ?></div>
-        <a href="chat.php?to=<?= $id ?>" class="btn btn-primary btn-message">Message</a>
+        <a href="chat.php?provider=<?= $id ?>" class="btn btn-primary btn-message">Message</a>
     </div>
 </div>
 

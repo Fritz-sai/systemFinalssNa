@@ -19,21 +19,33 @@ if (!$chatId || (!$message && !$serviceId)) exit;
 $pdo = getDBConnection();
 
 // Verify access
-$stmt = $pdo->prepare("SELECT id, customer_id, provider_id FROM chats WHERE id = ?");
+$stmt = $pdo->prepare("SELECT id, customer_id, provider_id FROM chats WHERE id = ? AND archived = 0");
 $stmt->execute([$chatId]);
 $chat = $stmt->fetch();
 if (!$chat) exit;
 
 $senderType = 'customer';
+$providerId = 0;
 if ($role === 'provider') {
     $prov = $pdo->prepare("SELECT id FROM providers WHERE user_id = ?");
     $prov->execute([$userId]);
     $provRow = $prov->fetch();
     if ($provRow && $provRow['id'] == $chat['provider_id']) {
         $senderType = 'provider';
+        $providerId = (int)$provRow['id'];
     }
 } elseif ($chat['customer_id'] != $userId) {
     exit;
+}
+
+// Providers must unlock customer contact to send messages
+if ($senderType === 'provider') {
+    $unlock = $pdo->prepare("SELECT 1 FROM contact_unlocks WHERE provider_id = ? AND customer_id = ?");
+    $unlock->execute([$providerId, $chat['customer_id']]);
+    if (!$unlock->fetch()) {
+        echo json_encode(['error' => 'locked', 'message' => 'Please unlock this customer\'s contact first to reply.']);
+        exit;
+    }
 }
 
 // If a service is being shared, format the message

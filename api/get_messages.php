@@ -14,7 +14,7 @@ $role = $_SESSION['role'];
 $pdo = getDBConnection();
 
 // Verify user is in this chat
-$stmt = $pdo->prepare("SELECT id FROM chats WHERE id = ? AND (customer_id = ? OR provider_id = (SELECT id FROM providers WHERE user_id = ?))");
+$stmt = $pdo->prepare("SELECT id FROM chats WHERE id = ? AND archived = 0 AND (customer_id = ? OR provider_id = (SELECT id FROM providers WHERE user_id = ?))");
 $stmt->execute([$chatId, $userId, $userId]);
 if (!$stmt->fetch()) {
     echo json_encode(['error' => 'Access denied']);

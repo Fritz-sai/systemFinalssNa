@@ -28,7 +28,7 @@ $services->execute([$id]);
 $services = $services->fetchAll();
 
 // fetch reviews (bookings with reviews)
-$reviewsStmt = $pdo->prepare("SELECT b.rating, b.review, b.created_at, u.full_name as customer_name FROM bookings b JOIN users u ON b.customer_id = u.id WHERE b.provider_id = ? AND b.review IS NOT NULL ORDER BY b.created_at DESC LIMIT 10");
+$reviewsStmt = $pdo->prepare("SELECT b.rating, b.review, b.review_photo_path, b.payment_accepted, b.created_at, u.full_name as customer_name FROM bookings b JOIN users u ON b.customer_id = u.id WHERE b.provider_id = ? AND b.review IS NOT NULL ORDER BY b.created_at DESC LIMIT 10");
 $reviewsStmt->execute([$id]);
 $reviews = $reviewsStmt->fetchAll();
 
@@ -132,12 +132,20 @@ require_once 'includes/header.php';
         <?php if (!empty($reviews)): ?>
             <?php foreach ($reviews as $r): ?>
                 <div style="border-bottom: 1px solid var(--border-color); padding: 0.75rem 0;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
                         <strong><?= htmlspecialchars($r['customer_name']) ?></strong>
                         <div class="small-muted">★ <?= number_format((float)$r['rating'],1) ?></div>
                     </div>
+                    <?php if (!empty($r['review_photo_path'])): ?>
+                        <img src="<?= htmlspecialchars($r['review_photo_path']) ?>" alt="Review photo" style="max-width: 150px; border-radius: 4px; margin-bottom: 0.5rem; display: block;">
+                    <?php endif; ?>
                     <p style="margin:0.5rem 0; color: var(--text-muted);"><?= htmlspecialchars($r['review']) ?></p>
-                    <div class="small-muted" style="font-size:0.85rem;"><?= htmlspecialchars(date('M j, Y', strtotime($r['created_at']))) ?></div>
+                    <div style="display:flex; gap:1rem; font-size:0.85rem;">
+                        <div class="small-muted"><?= htmlspecialchars(date('M j, Y', strtotime($r['created_at']))) ?></div>
+                        <?php if ($r['payment_accepted']): ?>
+                            <div style="color:#2ECC71;">✓ Payment accepted</div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             <?php endforeach; ?>
         <?php else: ?>
