@@ -79,6 +79,7 @@ if ($isLoggedIn) {
     </div>
     <div class="nav-links">
         <a class="nav-link <?= $currentPage === 'index.php' ? 'active' : '' ?>" href="index.php">Home</a>
+        <a class="nav-link <?= $currentPage === 'dashboard_provider.php' ? 'active' : '' ?>" href="dashboard_provider.php">My Bookings</a>
         <a class="nav-link <?= $currentPage === 'filter_results.php' ? 'active' : '' ?>" href="filter_results.php">Find Services</a>
         <?php if (!$isLoggedIn): ?>
             <a class="nav-link <?= $currentPage === 'register.php' ? 'active' : '' ?>" href="register.php">Become a Provider</a>
@@ -148,10 +149,6 @@ if ($isLoggedIn) {
                         <a href="<?= htmlspecialchars($viewProfileLink) ?>">View Profile</a>
                         <a href="profile_settings.php#edit-profile">Edit Profile</a>
                         <a href="profile_settings.php#account-settings">Account Settings</a>
-                        <a href="profile_settings.php#security-settings">Security Settings</a>
-                        <a href="profile_settings.php#privacy-settings">Privacy Settings</a>
-                        <a href="profile_settings.php#notification-settings">Notifications Settings</a>
-                        <a href="<?= htmlspecialchars($bookingHistoryLink) ?>">Booking History</a>
                         <a href="favorites.php">Saved Providers/Favorites</a>
                         <button type="button" id="toggle-site-theme-btn" class="profile-menu-action-btn">Switch Dark/Light Mode</button>
                         <a href="logout.php" class="profile-menu-logout">Logout</a>

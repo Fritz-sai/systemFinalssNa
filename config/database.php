@@ -261,6 +261,19 @@ function getDBConnection() {
                 }
             } catch (Throwable $e) { /* ignore */ }
 
+            // Allow provider "reject" outcome distinct from cancelled (ENUM)
+            try {
+                $col = $pdo->prepare("
+                    SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'status'
+                ");
+                $col->execute([DB_NAME]);
+                $type = (string)($col->fetchColumn() ?: '');
+                if ($type !== '' && stripos($type, 'rejected') === false && stripos($type, 'enum(') !== false) {
+                    $pdo->exec("ALTER TABLE bookings MODIFY COLUMN status ENUM('pending','confirmed','completed','cancelled','rejected') NOT NULL DEFAULT 'pending'");
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
             // Notifications table (for chat + other alerts)
             $pdo->exec("
                 CREATE TABLE IF NOT EXISTS notifications (

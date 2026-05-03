@@ -2,7 +2,7 @@
 $pageTitle = 'ServiceLink - Connecting You with Trusted Service Professionals';
 require_once 'config/config.php';
 require_once 'includes/header.php';
-require_once 'assets/css/style.css';
+
 
 ?>
 

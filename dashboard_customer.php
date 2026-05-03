@@ -92,7 +92,6 @@ $providersStmt = $pdo->query("
     JOIN users u ON p.user_id = u.id
     WHERE p.verification_status = 'approved'
     ORDER BY p.created_at DESC
-    LIMIT 4
 ");
 $providers = $providersStmt->fetchAll();
 
