@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Face Verification</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <section class="card">
+      <header class="card-header">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span>Secure KYC Verification</span>
+        </div>
+        <p class="subtitle">Align your face and follow head movement prompts.</p>
+      </header>
+
+      <div class="camera-shell">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+
+        <div class="face-ring-wrap">
+          <div id="faceRing" class="face-ring">
+            <div class="scan-line"></div>
+          </div>
+        </div>
+
+        <div id="statusPill" class="status-pill">Initializing camera...</div>
+
+        <div id="capturedImageContainer" class="captured-image-container hidden">
+          <img id="capturedImage" src="" alt="Captured face" class="captured-image" />
+          <div class="capture-controls">
+            <button id="downloadBtn" class="btn btn-primary">Download Photo</button>
+            <button id="retakeBtn" class="btn btn-secondary">Retake</button>
+          </div>
+        </div>
+
+        <div class="hud">
+          <div class="hud-row">
+            <span class="label">Liveness</span>
+            <span id="progressText" class="value">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="progressBar" class="progress-bar"></div>
+          </div>
+          <p id="instruction" class="instruction">Please allow camera access.</p>
+        </div>
+      </div>
+
+      <ol class="steps" id="stepsList">
+        <li data-step="left">Turn head slowly to the left</li>
+        <li data-step="right">Turn head slowly to the right</li>
+        <li data-step="up">Tilt head up</li>
+        <li data-step="down">Tilt head down</li>
+      </ol>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

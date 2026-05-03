@@ -139,6 +139,23 @@ if ($providerRow) {
         'Service Accepted - 5 Credits Deducted',
         $customerName . ' accepted your ' . $serviceName . ' service. 5 credits deducted.'
     ]);
+
+    // Notify admins about a new booking event
+    $adminUsers = $pdo->query("SELECT id FROM users WHERE role = 'admin'")->fetchAll(PDO::FETCH_COLUMN);
+    if (!empty($adminUsers)) {
+        $adminNotifStmt = $pdo->prepare("
+            INSERT INTO notifications (user_id, type, chat_id, title, body, is_read)
+            VALUES (?, 'booking_alert', ?, ?, ?, 0)
+        ");
+        foreach ($adminUsers as $adminUserId) {
+            $adminNotifStmt->execute([
+                (int)$adminUserId,
+                $chatId,
+                'Booking Alert',
+                $customerName . ' booked "' . $serviceName . '" (Booking #' . $bookingId . ').'
+            ]);
+        }
+    }
 }
 
     $pdo->commit();

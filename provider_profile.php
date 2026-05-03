@@ -23,6 +23,26 @@ if (!$provider) {
     exit;
 }
 
+// Respect provider profile visibility preference.
+try {
+    $visStmt = $pdo->prepare("
+        SELECT pref_value
+        FROM user_preferences
+        WHERE user_id = ? AND pref_key = 'privacy_profile_visibility'
+        LIMIT 1
+    ");
+    $visStmt->execute([(int)$provider['user_id']]);
+    $profileVisibility = (string)($visStmt->fetchColumn() ?: 'public');
+    $isOwner = isset($_SESSION['user_id']) && (int)$_SESSION['user_id'] === (int)$provider['user_id'];
+    $isAdmin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+    if ($profileVisibility === 'hidden' && !$isOwner && !$isAdmin) {
+        header('Location: index.php');
+        exit;
+    }
+} catch (Throwable $e) {
+    // ignore if preferences table doesn't exist yet
+}
+
 $services = $pdo->prepare("SELECT s.*, sc.name as category_name FROM services s JOIN service_categories sc ON s.category_id = sc.id WHERE s.provider_id = ?");
 $services->execute([$id]);
 $services = $services->fetchAll();
@@ -40,6 +60,43 @@ $avgRating = $pdo->prepare("SELECT AVG(rating) FROM bookings WHERE provider_id =
 $avgRating->execute([$id]);
 $avgRating = $avgRating->fetchColumn();
 $avgRating = $avgRating ? number_format((float)$avgRating, 1) : '—';
+
+$isFavorite = false;
+if (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'customer') {
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS user_favorites (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                provider_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uk_user_provider (user_id, provider_id),
+                INDEX (user_id),
+                INDEX (provider_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Throwable $e) {
+        // ignore
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $favAction = (string)($_POST['favorite_action'] ?? '');
+        if ($favAction === 'add') {
+            $pdo->prepare("
+                INSERT INTO user_favorites (user_id, provider_id)
+                VALUES (?, ?)
+                ON DUPLICATE KEY UPDATE created_at = CURRENT_TIMESTAMP
+            ")->execute([(int)$_SESSION['user_id'], $id]);
+        } elseif ($favAction === 'remove') {
+            $pdo->prepare("DELETE FROM user_favorites WHERE user_id = ? AND provider_id = ?")
+                ->execute([(int)$_SESSION['user_id'], $id]);
+        }
+    }
+
+    $favStmt = $pdo->prepare("SELECT 1 FROM user_favorites WHERE user_id = ? AND provider_id = ? LIMIT 1");
+    $favStmt->execute([(int)$_SESSION['user_id'], $id]);
+    $isFavorite = (bool)$favStmt->fetchColumn();
+}
 
 require_once 'includes/header.php';
 ?>
@@ -93,6 +150,10 @@ require_once 'includes/header.php';
                 <?php if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'customer'): ?>
                     <a href="chat.php?provider=<?= $id ?>" class="btn btn-primary">Message</a>
                     <a href="book_service.php?provider=<?= $id ?>" class="btn btn-outline">Book Service</a>
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="favorite_action" value="<?= $isFavorite ? 'remove' : 'add' ?>">
+                        <button type="submit" class="btn btn-ghost"><?= $isFavorite ? 'Remove Favorite' : 'Save Favorite' ?></button>
+                    </form>
                 <?php elseif (!isset($_SESSION['user_id'])): ?>
                     <a href="login.php" class="btn btn-primary">Login to Contact</a>
                 <?php endif; ?>
@@ -109,7 +170,12 @@ require_once 'includes/header.php';
     </div>
 
 
-    <h2 id="services" class="section-title" style="margin-top: 1.5rem;">Services Offered</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; margin-bottom: 1rem;">
+        <h2 id="services" class="section-title" style="margin: 0;">Services Offered</h2>
+        <?php if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'provider' && $_SESSION['provider_id'] == $id): ?>
+            <a href="provider_add_service.php" class="btn btn-primary" style="font-size: 0.9rem; padding: 0.5rem 1rem;">+ Add Service</a>
+        <?php endif; ?>
+    </div>
     <div class="provider-grid">
         <?php foreach ($services as $s): ?>
         <div class="card provider-card">
@@ -119,6 +185,8 @@ require_once 'includes/header.php';
                 <p><strong>₱<?= number_format($s['price_min']) ?> - ₱<?= number_format($s['price_max']) ?></strong></p>
                 <?php if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'customer'): ?>
                     <a href="book_service.php?provider=<?= $id ?>&service=<?= $s['id'] ?>" class="btn btn-primary" style="margin-top: 0.5rem;">Book this service</a>
+                <?php elseif (isset($_SESSION['user_id']) && $_SESSION['role'] === 'provider' && $_SESSION['provider_id'] == $id): ?>
+                    <a href="provider_edit_service.php?id=<?= $s['id'] ?>" class="btn btn-outline" style="margin-top: 0.5rem; display: block; text-align: center;">Edit Service</a>
                 <?php endif; ?>
             </div>
         </div>

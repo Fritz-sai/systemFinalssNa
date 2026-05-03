@@ -48,6 +48,79 @@ if ($senderType === 'provider') {
     }
 }
 
+// Resolve recipient user ID first for privacy checks.
+$recipientUserId = null;
+if ($senderType === 'customer') {
+    $provUser = $pdo->prepare("SELECT user_id, face_verified FROM providers WHERE id = ?");
+    $provUser->execute([$chat['provider_id']]);
+    $provUserRow = $provUser->fetch();
+    $recipientUserId = $provUserRow['user_id'] ?? null;
+} else {
+    $recipientUserId = $chat['customer_id'];
+}
+
+// Block list enforcement (either direction blocks messaging).
+if ($recipientUserId) {
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS user_blocks (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                blocker_user_id INT NOT NULL,
+                blocked_user_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uk_block_pair (blocker_user_id, blocked_user_id),
+                INDEX (blocker_user_id),
+                INDEX (blocked_user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $blockStmt = $pdo->prepare("
+            SELECT 1
+            FROM user_blocks
+            WHERE (blocker_user_id = ? AND blocked_user_id = ?)
+               OR (blocker_user_id = ? AND blocked_user_id = ?)
+            LIMIT 1
+        ");
+        $blockStmt->execute([$userId, (int)$recipientUserId, (int)$recipientUserId, $userId]);
+        if ($blockStmt->fetch()) {
+            echo json_encode(['error' => 'blocked', 'message' => 'Message cannot be sent due to privacy restrictions.']);
+            exit;
+        }
+    } catch (Throwable $e) {
+        // ignore and proceed
+    }
+
+    // Contact-scope privacy enforcement.
+    try {
+        $prefStmt = $pdo->prepare("
+            SELECT pref_key, pref_value
+            FROM user_preferences
+            WHERE user_id = ? AND pref_key IN ('privacy_contact_scope')
+        ");
+        $prefStmt->execute([(int)$recipientUserId]);
+        $contactScope = 'anyone';
+        foreach ($prefStmt->fetchAll() as $pref) {
+            if (($pref['pref_key'] ?? '') === 'privacy_contact_scope') {
+                $contactScope = (string)($pref['pref_value'] ?? 'anyone');
+            }
+        }
+        if ($contactScope === 'no_one') {
+            echo json_encode(['error' => 'privacy', 'message' => 'This user is not accepting messages right now.']);
+            exit;
+        }
+        if ($contactScope === 'verified_only') {
+            $verStmt = $pdo->prepare("SELECT email_verified FROM users WHERE id = ? LIMIT 1");
+            $verStmt->execute([$userId]);
+            $senderVerified = (int)($verStmt->fetchColumn() ?: 0) === 1;
+            if (!$senderVerified) {
+                echo json_encode(['error' => 'privacy', 'message' => 'Only verified users can contact this account.']);
+                exit;
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore and proceed
+    }
+}
+
 // If a service is being shared, format the message
 if ($serviceId && $senderType === 'provider') {
     $serviceStmt = $pdo->prepare("
@@ -67,7 +140,10 @@ if ($serviceId && $senderType === 'provider') {
             'title' => $service['title'],
             'description' => $service['description'],
             'price_min' => $service['price_min'],
-            'price_max' => $service['price_max']
+            'price_max' => $service['price_max'],
+            'price' => isset($_POST['price']) ? (float)$_POST['price'] : null,
+            'scheduled_date' => $_POST['scheduled_date'] ?? null,
+            'scheduled_time' => $_POST['scheduled_time'] ?? null
         ]);
     } else {
         exit;
@@ -84,16 +160,6 @@ $pdo->prepare("INSERT INTO messages (chat_id, sender_id, sender_type, message) V
 $pdo->prepare("UPDATE chats SET updated_at = NOW() WHERE id = ?")->execute([$chatId]);
 
 // Create notification for the recipient
-$recipientUserId = null;
-if ($senderType === 'customer') {
-    $provUser = $pdo->prepare("SELECT user_id FROM providers WHERE id = ?");
-    $provUser->execute([$chat['provider_id']]);
-    $provUserRow = $provUser->fetch();
-    $recipientUserId = $provUserRow['user_id'] ?? null;
-} else {
-    $recipientUserId = $chat['customer_id'];
-}
-
 if ($recipientUserId) {
     $senderNameStmt = $pdo->prepare("SELECT full_name FROM users WHERE id = ?");
     $senderNameStmt->execute([$userId]);

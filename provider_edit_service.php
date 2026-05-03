@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $priceMax = (float)($_POST['price_max'] ?? 0);
     $pdo->prepare("UPDATE services SET category_id=?, price_min=?, price_max=? WHERE id=? AND provider_id=?")
         ->execute([$category, $priceMin, $priceMax ?: $priceMin, $id, $providerId]);
-    header('Location: provider_profile.php');
+    header('Location: provider_profile.php?id=' . $providerId);
     exit;
 }
 

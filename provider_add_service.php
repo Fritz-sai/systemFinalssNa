@@ -18,7 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($category && $priceMin >= 0) {
         $pdo->prepare("INSERT INTO services (provider_id, category_id, price_min, price_max) VALUES (?, ?, ?, ?)")
             ->execute([$providerId, $category, $priceMin, $priceMax ?: $priceMin]);
-        header('Location: face_verification.php');
+        if (isset($_GET['setup_required'])) {
+            header('Location: face_verification.php');
+        } else {
+            header('Location: provider_profile.php?id=' . $providerId);
+        }
         exit;
     }
 }
@@ -28,7 +32,7 @@ require_once 'includes/header.php';
 ?>
 <section style="padding: 2rem; max-width: 600px;">
     <h1 class="section-title">Add Service</h1>
-    <form method="POST" class="card" style="padding: 2rem;">
+    <form method="POST" action="provider_add_service.php<?= isset($_GET['setup_required']) ? '?setup_required=1' : '' ?>" class="card" style="padding: 2rem;">
         <div class="form-group">
             <label>Category</label>
             <select name="category_id" required>

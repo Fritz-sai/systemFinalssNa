@@ -80,6 +80,42 @@ function getDBConnection() {
                 }
             } catch (Throwable $e) { /* ignore */ }
 
+            // Optional username on users
+            try {
+                $col = $pdo->prepare("
+                    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'username'
+                ");
+                $col->execute([DB_NAME]);
+                if ((int)$col->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE users ADD COLUMN username VARCHAR(60) NULL");
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
+            // Address line for profile settings
+            try {
+                $col = $pdo->prepare("
+                    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'address_line'
+                ");
+                $col->execute([DB_NAME]);
+                if ((int)$col->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE users ADD COLUMN address_line VARCHAR(255) NULL");
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
+            // Cover photo for user profiles
+            try {
+                $col = $pdo->prepare("
+                    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'cover_image_path'
+                ");
+                $col->execute([DB_NAME]);
+                if ((int)$col->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE users ADD COLUMN cover_image_path VARCHAR(255) NULL");
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
             try {
                 $col = $pdo->prepare("
                     SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
@@ -111,6 +147,18 @@ function getDBConnection() {
                 $col->execute([DB_NAME]);
                 if ((int)$col->fetchColumn() === 0) {
                     $pdo->exec("ALTER TABLE providers ADD COLUMN business_permit_path VARCHAR(500) NULL");
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
+            // Provider cover image for profile banner
+            try {
+                $col = $pdo->prepare("
+                    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'providers' AND COLUMN_NAME = 'cover_image_path'
+                ");
+                $col->execute([DB_NAME]);
+                if ((int)$col->fetchColumn() === 0) {
+                    $pdo->exec("ALTER TABLE providers ADD COLUMN cover_image_path VARCHAR(255) NULL");
                 }
             } catch (Throwable $e) { /* ignore */ }
 

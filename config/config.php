@@ -37,6 +37,30 @@ foreach ($uploadDirs as $dir) {
 // Include database
 require_once __DIR__ . '/database.php';
 
+// Admin session timeout support (driven by app_settings.admin_session_timeout).
+if (isset($_SESSION['user_id'], $_SESSION['role']) && $_SESSION['role'] === 'admin') {
+    try {
+        $pdo = getDBConnection();
+        $timeoutStmt = $pdo->prepare("SELECT setting_value FROM app_settings WHERE setting_key = 'admin_session_timeout' LIMIT 1");
+        $timeoutStmt->execute();
+        $timeoutMinutes = (int)($timeoutStmt->fetchColumn() ?: 30);
+        if ($timeoutMinutes < 5) $timeoutMinutes = 5;
+        if ($timeoutMinutes > 240) $timeoutMinutes = 240;
+
+        $now = time();
+        $lastActivity = (int)($_SESSION['last_activity_ts'] ?? 0);
+        if ($lastActivity > 0 && ($now - $lastActivity) > ($timeoutMinutes * 60)) {
+            session_unset();
+            session_destroy();
+            header('Location: login.php');
+            exit;
+        }
+        $_SESSION['last_activity_ts'] = $now;
+    } catch (Throwable $e) {
+        // If settings table doesn't exist yet, ignore timeout enforcement.
+    }
+}
+
 // SMTP / Mail settings (set these to your SMTP provider credentials)
 define('SMTP_ENABLED', true); // set to true after configuring below
 define('SMTP_HOST', 'smtp.gmail.com');

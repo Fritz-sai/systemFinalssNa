@@ -267,15 +267,74 @@ require_once 'includes/header.php';
     
     <!-- Service Share Modal -->
     <div id="service-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-        <div style="background:white; border-radius:var(--radius); max-width:500px; width:90%; padding:2rem; max-height:80vh; overflow-y:auto;">
+        <div style="background:white; border-radius:var(--radius); max-width:550px; width:90%; padding:2rem; max-height:90vh; overflow-y:auto;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h3 style="margin:0;">Share a Service</h3>
                 <button type="button" id="close-service-modal" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted);">×</button>
             </div>
-            <div id="services-list" style="display:flex; flex-direction:column; gap:0.75rem;">
+            
+            <div id="services-loading" style="display:none; text-align:center; padding:2rem;">
+                <div class="spinner" style="border: 4px solid rgba(0,0,0,0.1); border-left-color: var(--primary-color); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                <p style="color: var(--text-muted);">Loading your services...</p>
+            </div>
+            
+            <div id="services-list" style="display:flex; flex-direction:column; gap:1rem;">
                 <!-- Services will be loaded here -->
             </div>
-            <div id="services-loading" style="text-align:center; padding:1rem; color:var(--text-muted);">Loading your services...</div>
+            <form id="service-share-form" style="display:none; animation: fadeIn 0.3s ease-out;">
+                <div style="background: var(--bg-light, #f8f9fa); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--border-color, #e9ecef);">
+                    <h4 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-dark, #212529); font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary-color);"><path d="M9 11l3 3L22 4"></path><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Selected Service
+                    </h4>
+                    <input type="text" id="service-title" name="service_title" min="0" step="0.01" required placeholder="service title" style="width:100%; padding:0.75rem 0.75rem 0.75rem 2.5rem; border:1px solid #ced4da; border-radius:8px; font-size:1.1rem; font-weight: 600; color: var(--primary-color); outline: none; transition: border-color 0.2s;">
+                   
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div class="form-group">
+                        <label style="display:flex; align-items:center; gap:0.5rem; margin-bottom: 0.5rem; color: var(--text-dark); font-weight: 600; font-size: 0.95rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            Date
+                        </label>
+                        <input type="date" id="service-date" name="scheduled_date" required style="width:100%; padding:0.75rem; border:1px solid #ced4da; border-radius:8px; font-size:1rem; outline: none; transition: border-color 0.2s;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="display:flex; align-items:center; gap:0.5rem; margin-bottom: 0.5rem; color: var(--text-dark); font-weight: 600; font-size: 0.95rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            Time
+                        </label>
+                        <input type="time" id="service-time" name="scheduled_time" required style="width:100%; padding:0.75rem; border:1px solid #ced4da; border-radius:8px; font-size:1rem; outline: none; transition: border-color 0.2s;">
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 2rem;">
+                    <label style="display:flex; align-items:center; gap:0.5rem; margin-bottom: 0.5rem; color: var(--text-dark); font-weight: 600; font-size: 0.95rem;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        Final Price (₱)
+                    </label>
+                    <div style="position: relative;">
+                        <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #6c757d; font-weight: 600;">₱</span>
+                        <input type="number" id="service-price" name="price" min="0" step="0.01" required placeholder="0.00" style="width:100%; padding:0.75rem 0.75rem 0.75rem 2.5rem; border:1px solid #ced4da; border-radius:8px; font-size:1.1rem; font-weight: 600; color: var(--primary-color); outline: none; transition: border-color 0.2s;">
+                    </div>
+                    <small style="display: block; margin-top: 0.5rem; color: #6c757d;">You can adjust the price based on customer requirements before sending the offer.</small>
+                </div>
+                
+                <div style="display:flex; gap:1rem; margin-top:1.5rem; border-top: 1px solid #e9ecef; padding-top: 1.5rem;">
+                    <button type="button" id="cancel-service-form" class="btn btn-outline" style="flex:1; padding: 0.8rem; font-weight: 600; border-radius: 8px; font-size: 1rem;">Back</button>
+                    <button type="submit" class="btn btn-primary" style="flex:2; padding: 0.8rem; font-weight: 600; border-radius: 8px; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        Send Offer
+                    </button>
+                </div>
+                <style>
+                    #service-date:focus, #service-time:focus, #service-price:focus, #service-select:focus {
+                        border-color: var(--primary-color) !important;
+                        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+                    }
+                </style>
+            </form>
         </div>
     </div>
     <?php endif; ?>
@@ -333,11 +392,22 @@ function loadMessages() {
                     
                     // Handle service offer messages
                     if (msgData.type === 'service') {
-                        const priceRange = parseFloat(msgData.price_min) === parseFloat(msgData.price_max) ? 
+                        const priceRange = msgData.price ? 
+                            '₱' + parseFloat(msgData.price).toFixed(2) :
+                            (parseFloat(msgData.price_min) === parseFloat(msgData.price_max) ? 
                             '₱' + parseFloat(msgData.price_min).toFixed(2) :
-                            '₱' + parseFloat(msgData.price_min).toFixed(2) + ' - ₱' + parseFloat(msgData.price_max).toFixed(2);
+                            '₱' + parseFloat(msgData.price_min).toFixed(2) + ' - ₱' + parseFloat(msgData.price_max).toFixed(2));
                         const title = msgData.title || 'Service';
-                        const description = msgData.description || 'No description';
+                        const scheduledDate = msgData.scheduled_date || msgData.date;
+                        const scheduledTime = msgData.scheduled_time || msgData.time;
+                        
+                        // Format date nicely
+                        let formattedDate = '';
+                        if (scheduledDate) {
+                            const dateObj = new Date(scheduledDate);
+                            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                            formattedDate = dateObj.toLocaleDateString('en-US', options);
+                        }
                         
                         let buttonsHtml = '';
                         // Only show accept/decline buttons for customers receiving the service if not already responded
@@ -353,18 +423,32 @@ function loadMessages() {
                             });
                             
                             if (!hasResponded) {
-                                buttonsHtml = '<div style=\"display:flex; gap:0.5rem; margin-top:0.75rem;\">' +
-                                    '<button type=\"button\" class=\"service-accept-btn\" data-service-id=\"' + msgData.service_id + '\" data-instance-id=\"' + msgData.instance_id + '\" data-chat-id=\"' + chatId + '\" style=\"flex:1; padding:0.5rem; background:var(--accent); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:500; font-size:0.85rem; transition:all 0.3s;\" onmouseover=\"this.style.background=\\'var(--accent-hover)\\'\" onmouseout=\"this.style.background=\\'var(--accent)\\'\">Accept</button>' +
-                                    '<button type=\"button\" class=\"service-decline-btn\" data-service-id=\"' + msgData.service_id + '\" data-instance-id=\"' + msgData.instance_id + '\" data-chat-id=\"' + chatId + '\" style=\"flex:1; padding:0.5rem; background:#e9ecef; color:#666; border:none; border-radius:6px; cursor:pointer; font-weight:500; font-size:0.85rem; transition:all 0.3s;\" onmouseover=\"this.style.background=\\'#ddd\\'\" onmouseout=\"this.style.background=\\'#e9ecef\\'\">Decline</button>' +
+                                buttonsHtml = '<div style=\"display:flex; gap:0.75rem; margin-top:1.5rem; padding-top:1rem; border-top:1px solid rgba(0,0,0,0.1);\">' +
+                                    '<button type=\"button\" class=\"service-accept-btn\" data-service-id=\"' + msgData.service_id + '\" data-instance-id=\"' + msgData.instance_id + '\" data-chat-id=\"' + chatId + '\" style=\"flex:1; padding:0.65rem; background:#4CAF50; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.9rem; transition:all 0.3s;\" onmouseover=\"this.style.background=\\'#45a049\\'\" onmouseout=\"this.style.background=\\'#4CAF50\\'\">✓ Accept</button>' +
+                                    '<button type=\"button\" class=\"service-decline-btn\" data-service-id=\"' + msgData.service_id + '\" data-instance-id=\"' + msgData.instance_id + '\" data-chat-id=\"' + chatId + '\" style=\"flex:1; padding:0.65rem; background:#f44336; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.9rem; transition:all 0.3s;\" onmouseover=\"this.style.background=\\'#da190b\\'\" onmouseout=\"this.style.background=\\'#f44336\\'\">✕ Decline</button>' +
                                     '</div>';
                             }
                         }
                         
-                        messageHtml = '<div class=\"message-bubble ' + (sent ? 'sent' : 'received') + '\" style=\"max-width:400px;\">' +
-                            '<div style=\"background:rgba(255,255,255,0.1); padding:0.75rem; border-radius:8px;\">' +
-                            '<div style=\"font-weight:600; margin-bottom:0.5rem;\">' + title + '</div>' +
-                            '<div style=\"font-size:0.85rem; margin-bottom:0.5rem; opacity:0.95;\">' + description.substring(0, 100) + (description.length > 100 ? '...' : '') + '</div>' +
-                            '<div style=\"font-weight:600; font-size:1rem;\">' + priceRange + '</div>' +
+                        // Build the service card with icons
+                        messageHtml = '<div class=\"message-bubble ' + (sent ? 'sent' : 'received') + '\" style=\"max-width:450px;\">' +
+                            '<div style=\"background:white; padding:1.5rem; border-radius:12px; border:1px solid #e0e0e0;\">' +
+                            '<div style=\"display:flex; align-items:flex-start; gap:1rem; margin-bottom:1.25rem;\">' +
+                            '<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#1976d2\" stroke-width=\"2\" style=\"flex-shrink:0; margin-top:2px;\"><path d=\"M9 11l3 3L22 4\"></path><path d=\"M21 12a9 9 0 11-18 0 9 9 0 0118 0z\"></path></svg>' +
+                            '<div style=\"flex:1;\"><div style=\"font-size:0.75rem; color:#999; text-transform:uppercase; font-weight:600; letter-spacing:0.5px; margin-bottom:0.25rem;\">Service</div>' +
+                            '<div style=\"font-size:1rem; font-weight:600; color:#333;\">' + title + '</div></div></div>' +
+                            (scheduledDate ? '<div style=\"display:flex; align-items:flex-start; gap:1rem; margin-bottom:1.25rem;\">' +
+                            '<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#1976d2\" stroke-width=\"2\" style=\"flex-shrink:0; margin-top:2px;\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><line x1=\"16\" y1=\"2\" x2=\"16\" y2=\"6\"></line><line x1=\"8\" y1=\"2\" x2=\"8\" y2=\"6\"></line><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"></line></svg>' +
+                            '<div style=\"flex:1;\"><div style=\"font-size:0.75rem; color:#999; text-transform:uppercase; font-weight:600; letter-spacing:0.5px; margin-bottom:0.25rem;\">Date</div>' +
+                            '<div style=\"font-size:1rem; font-weight:600; color:#333;\">' + formattedDate + '</div></div></div>' : '') +
+                            (scheduledTime ? '<div style=\"display:flex; align-items:flex-start; gap:1rem; margin-bottom:1.25rem;\">' +
+                            '<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#1976d2\" stroke-width=\"2\" style=\"flex-shrink:0; margin-top:2px;\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><polyline points=\"12 6 12 12 16 14\"></polyline></svg>' +
+                            '<div style=\"flex:1;\"><div style=\"font-size:0.75rem; color:#999; text-transform:uppercase; font-weight:600; letter-spacing:0.5px; margin-bottom:0.25rem;\">Time</div>' +
+                            '<div style=\"font-size:1rem; font-weight:600; color:#333;\">' + scheduledTime + '</div></div></div>' : '') +
+                            '<div style=\"display:flex; align-items:flex-start; gap:1rem;\">' +
+                            '<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#1976d2\" stroke-width=\"2\" style=\"flex-shrink:0; margin-top:2px;\"><line x1=\"12\" y1=\"1\" x2=\"12\" y2=\"23\"></line><path d=\"M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6\"></path></svg>' +
+                            '<div style=\"flex:1;\"><div style=\"font-size:0.75rem; color:#999; text-transform:uppercase; font-weight:600; letter-spacing:0.5px; margin-bottom:0.25rem;\">Price</div>' +
+                            '<div style=\"font-size:1.2rem; font-weight:700; color:#1976d2;\">' + priceRange + '</div></div></div>' +
                             buttonsHtml +
                             '</div>' +
                             '<div class=\"message-meta\">' + m.created_at + '</div>' +
@@ -498,6 +582,9 @@ setInterval(loadMessages, 3000);
 const serviceModal = document.getElementById('service-modal');
 const shareServiceBtn = document.getElementById('share-service-btn');
 const closeServiceBtn = document.getElementById('close-service-modal');
+const serviceForm = document.getElementById('service-share-form');
+const servicesList = document.getElementById('services-list');
+const servicesLoading = document.getElementById('services-loading');
 
 if (shareServiceBtn && serviceModal) {
     shareServiceBtn.addEventListener('click', function() {
@@ -509,32 +596,40 @@ if (shareServiceBtn && serviceModal) {
 if (closeServiceBtn) {
     closeServiceBtn.addEventListener('click', function() {
         serviceModal.style.display = 'none';
+        serviceForm.style.display = 'none';
+        servicesList.style.display = 'flex';
     });
 }
 
 serviceModal?.addEventListener('click', function(e) {
     if (e.target === serviceModal) {
         serviceModal.style.display = 'none';
+        serviceForm.style.display = 'none';
+        servicesList.style.display = 'flex';
     }
 });
 
+document.getElementById('cancel-service-form')?.addEventListener('click', function() {
+    serviceForm.style.display = 'none';
+    servicesList.style.display = 'flex';
+    serviceForm.reset();
+});
+
 function loadProviderServices() {
-    const listEl = document.getElementById('services-list');
-    const loadingEl = document.getElementById('services-loading');
-    listEl.innerHTML = '';
-    loadingEl.style.display = 'block';
+    servicesList.innerHTML = '';
+    servicesLoading.style.display = 'block';
     
     fetch('api/get_provider_services.php')
         .then(r => r.json())
         .then(function(data) {
-            loadingEl.style.display = 'none';
+            servicesLoading.style.display = 'none';
             if (!data.services || data.services.length === 0) {
-                listEl.innerHTML = '<div style=\"text-align:center; padding:1rem; color:var(--text-muted);\">No services yet. Create one first.</div>';
+                servicesList.innerHTML = '<div style=\"text-align:center; padding:1rem; color:var(--text-muted);\">No services yet. Create one first.</div>';
                 return;
             }
-            listEl.innerHTML = data.services.map(s => {
+            servicesList.innerHTML = data.services.map(s => {
                 const categoryBadge = s.category_name ? '<div style=\"display:inline-block; background:var(--accent); color:white; padding:0.25rem 0.6rem; border-radius:12px; font-size:0.75rem; font-weight:600; margin-bottom:0.5rem;\">' + s.category_name + '</div>' : '';
-                return '<div class=\"service-item\" style=\"padding:1rem; border:1px solid var(--border-color); border-radius:var(--radius); cursor:pointer; transition:var(--transition);\" data-service-id=\"' + s.id + '\">' +
+                return '<div class=\"service-item\" style=\"padding:1rem; border:1px solid var(--border-color); border-radius:var(--radius); cursor:pointer; transition:var(--transition);\" data-service-id=\"' + s.id + '\" data-service-title=\"' + (s.title || '') + '\" data-price-min=\"' + (s.price_min || 0) + '\" data-price-max=\"' + (s.price_max || 0) + '\">' +
                     categoryBadge +
                     '<div style=\"font-weight:500; color:var(--text-dark); margin-bottom:0.25rem;\">' + s.title + '</div>' +
                     '<div style=\"font-size:0.85rem; color:var(--text-muted); margin-bottom:0.5rem;\">' + (s.description ? s.description.substring(0, 60) + (s.description.length > 60 ? '...' : '') : '') + '</div>' +
@@ -545,7 +640,9 @@ function loadProviderServices() {
             document.querySelectorAll('.service-item').forEach(item => {
                 item.addEventListener('click', function() {
                     const serviceId = this.getAttribute('data-service-id');
-                    sendServiceMessage(serviceId);
+                    const serviceTitle = this.getAttribute('data-service-title');
+                    const priceMin = this.getAttribute('data-price-min');
+                    showServiceForm(serviceId, serviceTitle, priceMin);
                 });
                 item.addEventListener('mouseover', function() {
                     this.style.background = 'var(--bg-light)';
@@ -558,19 +655,60 @@ function loadProviderServices() {
             });
         })
         .catch(function() {
-            loadingEl.style.display = 'none';
-            listEl.innerHTML = '<div style=\"text-align:center; padding:1rem; color:var(--text-muted);\">Failed to load services.</div>';
+            servicesLoading.style.display = 'none';
+            servicesList.innerHTML = '<div style=\"text-align:center; padding:1rem; color:var(--text-muted);\">Failed to load services.</div>';
         });
 }
 
-function sendServiceMessage(serviceId) {
+function showServiceForm(serviceId, serviceTitle, priceMin) {
+    const select = document.getElementById('service-select');
+    if (select && select.options.length > 0) {
+        select.options[0].value = serviceId;
+        select.options[0].text = serviceTitle;
+        select.value = serviceId;
+    }
+    
+    const priceInput = document.getElementById('service-price');
+    if (priceInput && priceMin) {
+        priceInput.value = parseFloat(priceMin).toFixed(2);
+    }
+    
+    // Set minimum date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('service-date').min = today;
+    
+    servicesList.style.display = 'none';
+    servicesLoading.style.display = 'none';
+    serviceForm.style.display = 'block';
+    document.getElementById('service-date').focus();
+}
+
+document.getElementById('service-share-form')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const serviceId = document.getElementById('service-select').value;
+    const scheduledDate = document.getElementById('service-date').value;
+    const scheduledTime = document.getElementById('service-time').value;
+    const price = document.getElementById('service-price').value;
+    
+    if (!serviceId || !scheduledDate || !scheduledTime || !price) {
+        alert('Please fill in all fields');
+        return;
+    }
+    
+    sendServiceMessage(serviceId, scheduledDate, scheduledTime, price);
+});
+
+function sendServiceMessage(serviceId, scheduledDate, scheduledTime, price) {
     const instanceId = 'srv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     fetch('api/send_message.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: 'chat_id=' + chatId + '&message=&service_id=' + serviceId + '&instance_id=' + instanceId
+        body: 'chat_id=' + chatId + '&message=&service_id=' + serviceId + '&instance_id=' + instanceId + '&scheduled_date=' + encodeURIComponent(scheduledDate) + '&scheduled_time=' + encodeURIComponent(scheduledTime) + '&price=' + encodeURIComponent(price)
     }).then(r => r.json()).then(function() {
         serviceModal.style.display = 'none';
+        serviceForm.style.display = 'none';
+        serviceForm.reset();
+        servicesList.style.display = 'flex';
         loadMessages();
     });
 }

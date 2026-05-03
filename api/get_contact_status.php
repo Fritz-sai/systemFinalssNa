@@ -44,13 +44,29 @@ $result = [
 ];
 
 if ($isUnlocked) {
+    $showPhone = true;
+    $showEmail = true;
+    try {
+        $prefStmt = $pdo->prepare("
+            SELECT pref_key, pref_value
+            FROM user_preferences
+            WHERE user_id = ? AND pref_key IN ('privacy_show_phone', 'privacy_show_email')
+        ");
+        $prefStmt->execute([$customerId]);
+        foreach ($prefStmt->fetchAll() as $pref) {
+            if (($pref['pref_key'] ?? '') === 'privacy_show_phone') $showPhone = ((string)$pref['pref_value'] ?? '1') === '1';
+            if (($pref['pref_key'] ?? '') === 'privacy_show_email') $showEmail = ((string)$pref['pref_value'] ?? '1') === '1';
+        }
+    } catch (Throwable $e) {
+        // default to visible if prefs unavailable
+    }
     $userStmt = $pdo->prepare("SELECT full_name, phone, email FROM users WHERE id = ?");
     $userStmt->execute([$customerId]);
     $user = $userStmt->fetch();
     $result['contact'] = [
         'full_name' => $user['full_name'] ?? '',
-        'phone' => $user['phone'] ?? '',
-        'email' => $user['email'] ?? ''
+        'phone' => $showPhone ? ($user['phone'] ?? '') : '',
+        'email' => $showEmail ? ($user['email'] ?? '') : ''
     ];
 }
 

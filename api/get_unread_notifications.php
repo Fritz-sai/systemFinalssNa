@@ -10,11 +10,13 @@ if (!isset($_SESSION['user_id'])) {
 $pdo = getDBConnection();
 $userId = $_SESSION['user_id'];
 
-$count = (int)$pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0")
-    ->execute([$userId]) ?: 0;
-
-// PDOStatement::execute returns bool; fetch count properly
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0");
+$stmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM notifications
+    WHERE user_id = ?
+      AND is_read = 0
+      AND type IN ('message', 'service_accepted', 'service_declined')
+");
 $stmt->execute([$userId]);
 $count = (int)$stmt->fetchColumn();
 

@@ -41,10 +41,34 @@ if (!$chat) {
 
 $customerId = (int)$chat['customer_id'];
 
+function getCustomerContactPrivacy(PDO $pdo, int $customerId): array
+{
+    $privacy = [
+        'show_phone' => true,
+        'show_email' => true
+    ];
+    try {
+        $prefStmt = $pdo->prepare("
+            SELECT pref_key, pref_value
+            FROM user_preferences
+            WHERE user_id = ? AND pref_key IN ('privacy_show_phone', 'privacy_show_email')
+        ");
+        $prefStmt->execute([$customerId]);
+        foreach ($prefStmt->fetchAll() as $pref) {
+            if (($pref['pref_key'] ?? '') === 'privacy_show_phone') $privacy['show_phone'] = ((string)$pref['pref_value'] ?? '1') === '1';
+            if (($pref['pref_key'] ?? '') === 'privacy_show_email') $privacy['show_email'] = ((string)$pref['pref_value'] ?? '1') === '1';
+        }
+    } catch (Throwable $e) {
+        // keep defaults
+    }
+    return $privacy;
+}
+
 // Already unlocked?
 $chk = $pdo->prepare("SELECT 1 FROM contact_unlocks WHERE provider_id = ? AND customer_id = ?");
 $chk->execute([$providerId, $customerId]);
 if ($chk->fetch()) {
+    $privacy = getCustomerContactPrivacy($pdo, $customerId);
     $userStmt = $pdo->prepare("SELECT full_name, phone, email FROM users WHERE id = ?");
     $userStmt->execute([$customerId]);
     $user = $userStmt->fetch();
@@ -53,8 +77,8 @@ if ($chk->fetch()) {
         'already_unlocked' => true,
         'contact' => [
             'full_name' => $user['full_name'] ?? '',
-            'phone' => $user['phone'] ?? '',
-            'email' => $user['email'] ?? ''
+            'phone' => $privacy['show_phone'] ? ($user['phone'] ?? '') : '',
+            'email' => $privacy['show_email'] ? ($user['email'] ?? '') : ''
         ]
     ]);
     exit;
@@ -102,13 +126,14 @@ try {
 $userStmt = $pdo->prepare("SELECT full_name, phone, email FROM users WHERE id = ?");
 $userStmt->execute([$customerId]);
 $user = $userStmt->fetch();
+$privacy = getCustomerContactPrivacy($pdo, $customerId);
 
 echo json_encode([
     'success' => true,
     'credits_remaining' => $credits - $cost,
     'contact' => [
         'full_name' => $user['full_name'] ?? '',
-        'phone' => $user['phone'] ?? '',
-        'email' => $user['email'] ?? ''
+        'phone' => $privacy['show_phone'] ? ($user['phone'] ?? '') : '',
+        'email' => $privacy['show_email'] ? ($user['email'] ?? '') : ''
     ]
 ]);
