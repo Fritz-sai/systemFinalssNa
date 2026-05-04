@@ -79,7 +79,13 @@ if ($isLoggedIn) {
     </div>
     <div class="nav-links">
         <a class="nav-link <?= $currentPage === 'index.php' ? 'active' : '' ?>" href="index.php">Home</a>
-        <a class="nav-link <?= $currentPage === 'dashboard_provider.php' ? 'active' : '' ?>" href="dashboard_provider.php">My Bookings</a>
+        <?php 
+        $bookingsLink = 'login.php';
+        if ($isLoggedIn) {
+            $bookingsLink = ($userRole === 'customer') ? 'my_bookings.php' : 'dashboard_provider.php';
+        }
+        ?>
+        <a class="nav-link <?= ($currentPage === 'my_bookings.php' || $currentPage === 'dashboard_provider.php') ? 'active' : '' ?>" href="<?= $bookingsLink ?>">My Bookings</a>
         <a class="nav-link <?= $currentPage === 'filter_results.php' ? 'active' : '' ?>" href="filter_results.php">Find Services</a>
         <?php if (!$isLoggedIn): ?>
             <a class="nav-link <?= $currentPage === 'register.php' ? 'active' : '' ?>" href="register.php">Become a Provider</a>
@@ -149,6 +155,7 @@ if ($isLoggedIn) {
                         <a href="<?= htmlspecialchars($viewProfileLink) ?>">View Profile</a>
                         <a href="profile_settings.php#edit-profile">Edit Profile</a>
                         <a href="profile_settings.php#account-settings">Account Settings</a>
+                        <a href="payment_settings.php">Payment Settings <span style="background:var(--primary-color);color:white;font-size:0.65rem;padding:0.1rem 0.4rem;border-radius:10px;margin-left:0.3rem;">NEW</span></a>
                         <a href="favorites.php">Saved Providers/Favorites</a>
                         <button type="button" id="toggle-site-theme-btn" class="profile-menu-action-btn">Switch Dark/Light Mode</button>
                         <a href="logout.php" class="profile-menu-logout">Logout</a>

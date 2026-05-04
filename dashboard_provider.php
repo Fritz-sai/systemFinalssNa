@@ -339,6 +339,57 @@ require_once 'includes/header.php';
         </div>
     </div>
 </section>
+
+<!-- Reject Booking Modal -->
+<div id="reject-booking-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: white; border-radius: 16px; padding: 2rem; width: 100%; max-width: 450px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        <h2 style="margin: 0 0 1.25rem; font-size: 1.25rem; color: #0f172a; font-weight: 700;">Reject Booking</h2>
+        <form id="reject-booking-form">
+            <input type="hidden" id="reject-booking-id" name="booking_id">
+            <input type="hidden" name="decision" value="reject">
+            
+            <label style="display: block; font-weight: 600; font-size: 0.9rem; color: #334155; margin-bottom: 0.5rem;">Quick Select Reason</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;" id="reject-chips">
+                <button type="button" class="reject-chip">Not available on selected date</button>
+                <button type="button" class="reject-chip">Fully booked</button>
+                <button type="button" class="reject-chip">Schedule conflict</button>
+                <button type="button" class="reject-chip" data-reschedule="true">Request to reschedule</button>
+                <button type="button" class="reject-chip">Other</button>
+            </div>
+
+            <label style="display: block; font-weight: 600; font-size: 0.9rem; color: #334155; margin-bottom: 0.5rem;">Reason for rejection <span style="color: #e74c3c;">*</span></label>
+            <textarea id="reject-reason" name="reason" placeholder="Enter why you are rejecting this booking (e.g. not available, fully booked, need to reschedule...)" required minlength="10" style="width: 100%; padding: 0.75rem; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; min-height: 80px; margin-bottom: 1rem;"></textarea>
+
+            <div id="reschedule-inputs" style="display: none; background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 1.5rem;">
+                <p style="margin: 0 0 0.75rem; font-size: 0.85rem; color: #475569; font-weight: 600;">Suggest New Schedule (Optional)</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">New Date</label>
+                        <input type="date" id="reschedule_date" name="reschedule_date" style="width: 100%; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem;" min="<?= date('Y-m-d') ?>">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">New Time</label>
+                        <input type="time" id="reschedule_time" name="reschedule_time" style="width: 100%; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem;">
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" class="btn-action btn-cancel" onclick="document.getElementById('reject-booking-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn-action btn-reject" style="background: #ef4444; color: white;">Submit Rejection</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.reject-chip { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 999px; padding: 0.35rem 0.75rem; font-size: 0.8rem; color: #475569; cursor: pointer; transition: all 0.2s; }
+.reject-chip:hover { background: #e2e8f0; }
+.reject-chip.active { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+@keyframes modalPop { 0% { opacity: 0; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
+.modal-show { display: flex !important; animation: modalPop 0.3s ease forwards; }
+</style>
+
 <script type="application/json" id="pd-initial-bookings"><?= $pdBookingsJson ?></script>
 <script>
 (function () {
@@ -582,8 +633,7 @@ require_once 'includes/header.php';
             var actions = '';
             if (status === 'pending') {
                 actions = '<button type="button" class="btn-action btn-confirm js-booking-decision" data-booking-id="' + booking.id + '" data-decision="confirm">Confirmed</button>' +
-                    '<button type="button" class="btn-action btn-reject js-booking-decision" data-booking-id="' + booking.id + '" data-decision="reject">Reject</button>' +
-                    '<button type="button" class="btn-action btn-cancel js-booking-decision" data-booking-id="' + booking.id + '" data-decision="cancel">Cancel</button>' +
+                    '<button type="button" class="btn-action btn-reject js-reject-booking" data-booking-id="' + booking.id + '">Reject Booking</button>' +
                     '<button type="button" class="btn-action" disabled>Pending</button>';
             } else if (status === 'confirmed') {
                 actions = '<button type="button" class="btn-action btn-done js-booking-decision" data-booking-id="' + booking.id + '" data-decision="done">Mark as Done</button>' +
@@ -607,6 +657,24 @@ require_once 'includes/header.php';
         });
 
         bindDecisionButtons(listEl);
+        
+        listEl.querySelectorAll('.js-reject-booking').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var bookingId = this.getAttribute('data-booking-id');
+                document.getElementById('reject-booking-id').value = bookingId;
+                document.getElementById('reject-reason').value = '';
+                document.getElementById('reschedule_date').value = '';
+                document.getElementById('reschedule_time').value = '';
+                document.getElementById('reschedule-inputs').style.display = 'none';
+                document.querySelectorAll('.reject-chip').forEach(function(c) { c.classList.remove('active'); });
+                
+                var modal = document.getElementById('reject-booking-modal');
+                modal.style.display = 'flex';
+                if (!modal.classList.contains('modal-show')) {
+                    modal.classList.add('modal-show');
+                }
+            });
+        });
     }
 
     function monthNamesShort() {
@@ -624,7 +692,6 @@ require_once 'includes/header.php';
         var bookingId = this.getAttribute('data-booking-id');
         var decision = this.getAttribute('data-decision');
         if (decision === 'cancel' && !confirm('Cancel this booking?')) return;
-        if (decision === 'reject' && !confirm('Reject this booking request?')) return;
         var fd = new FormData();
         fd.append('booking_id', bookingId);
         fd.append('decision', decision);
@@ -691,8 +758,76 @@ require_once 'includes/header.php';
     renderCalendar();
     renderSelectedDaySummary();
     renderBookingList();
+    
+    // Reject form submission logic
+    var rejectForm = document.getElementById('reject-booking-form');
+    if (rejectForm) {
+        rejectForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var reason = document.getElementById('reject-reason').value.trim();
+            if (reason.length < 10) {
+                alert('Please provide a reason of at least 10 characters.');
+                return;
+            }
+
+            var fd = new FormData(this);
+            var submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            fetch('api/respond_booking.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Rejection';
+                    if (!data.success) {
+                        alert(data.error || 'Failed to reject booking.');
+                        return;
+                    }
+                    document.getElementById('reject-booking-modal').style.display = 'none';
+                    var id = parseInt(data.booking_id, 10);
+                    var nb = bookings.find(function (b) { return b.id === id; });
+                    if (nb && data.status) nb.status = data.status;
+                    renderTabCounts();
+                    renderCalendar();
+                    renderSelectedDaySummary();
+                    renderBookingList();
+                })
+                .catch(function () {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Rejection';
+                    alert('Failed to reject booking.');
+                });
+        });
+
+        document.querySelectorAll('.reject-chip').forEach(function(chip) {
+            chip.addEventListener('click', function() {
+                document.querySelectorAll('.reject-chip').forEach(function(c) { c.classList.remove('active'); });
+                this.classList.add('active');
+                
+                var text = this.innerText;
+                if (text !== 'Other') {
+                    document.getElementById('reject-reason').value = text;
+                } else {
+                    document.getElementById('reject-reason').value = '';
+                    document.getElementById('reject-reason').focus();
+                }
+
+                if (this.getAttribute('data-reschedule') === 'true') {
+                    document.getElementById('reschedule-inputs').style.display = 'block';
+                } else {
+                    document.getElementById('reschedule-inputs').style.display = 'none';
+                    document.getElementById('reschedule_date').value = '';
+                    document.getElementById('reschedule_time').value = '';
+                }
+            });
+        });
+    }
+
 })();
 </script>
+</script>
+
 <?php
 $addServiceModalCategories = $categories;
 if (!empty($addServiceModalCategories)) {

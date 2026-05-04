@@ -137,7 +137,7 @@ if ($serviceId && $senderType === 'provider') {
             'type' => 'service',
             'service_id' => $service['id'],
             'instance_id' => $instanceId ?: 'srv_' . time() . '_' . rand(1000, 9999),
-            'title' => $service['title'],
+            'title' => $_POST['service_title'] ?? $service['title'],
             'description' => $service['description'],
             'price_min' => $service['price_min'],
             'price_max' => $service['price_max'],
@@ -165,7 +165,7 @@ if ($recipientUserId) {
     $senderNameStmt->execute([$userId]);
     $senderName = $senderNameStmt->fetchColumn() ?: 'New message';
 
-    $notificationBody = $message ?: ($service['title'] ?? 'Service shared');
+    $notificationBody = $message ?: ($_POST['service_title'] ?? ($service['title'] ?? 'Service shared'));
     $pdo->prepare("
         INSERT INTO notifications (user_id, type, chat_id, title, body, is_read)
         VALUES (?, 'message', ?, ?, ?, 0)

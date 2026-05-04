@@ -1,4 +1,3 @@
-
 <?php
 $pageTitle = 'Customer Dashboard';
 require_once 'config/config.php';
@@ -62,95 +61,118 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get user's location if set
+// Get user data
 $userStmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch();
 
 $location = $user['city'] ?? ($_SESSION['user_city'] ?? '');
+$memberSince = date('M Y', strtotime($user['created_at']));
+
 $categories = $pdo->query("SELECT * FROM service_categories ORDER BY name")->fetchAll();
 
-// My Bookings (with completion confirmation and rating)
-$bookingsStmt = $pdo->prepare("
-    SELECT b.id, b.scheduled_date, b.status, b.completion_confirmed, b.rating, b.review,
-           b.provider_id, s.title as service_title,
-           u.full_name as provider_name, p.profile_image_path as provider_image, p.city as provider_city
-    FROM bookings b
-    JOIN providers p ON b.provider_id = p.id
-    JOIN users u ON p.user_id = u.id
-    JOIN services s ON b.service_id = s.id
-    WHERE b.customer_id = ?
-    ORDER BY b.scheduled_date DESC, b.created_at DESC
-");
-$bookingsStmt->execute([$userId]);
-$bookings = $bookingsStmt->fetchAll();
-
-// Providers near user (simplified - use any if no location)
+// Providers near user
 $providersStmt = $pdo->query("
     SELECT p.id, p.city, p.barangay, p.profile_image_path, u.full_name
     FROM providers p
     JOIN users u ON p.user_id = u.id
     WHERE p.verification_status = 'approved'
     ORDER BY p.created_at DESC
+    LIMIT 9
 ");
 $providers = $providersStmt->fetchAll();
 
 require_once 'includes/header.php';
 ?>
+
 <style>
 .profile-wrapper { background: #f8faff; min-height: 100vh; padding: 2rem; font-family: 'Inter', sans-serif; }
-.top-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-@media (max-width: 768px) { .top-grid { grid-template-columns: 1fr; } }
-.dash-card { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+.top-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+@media (max-width: 992px) { .top-grid { grid-template-columns: 1fr; } }
+
+.dash-card { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #eef2f6; }
 .dash-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-.dash-card-title { font-size: 1.25rem; font-weight: 700; color: #1e293b; margin: 0; }
-.badge-complete { background: #dcfce7; color: #166534; padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600; }
+.dash-card-title { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0; }
 
-.profile-info { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; }
-.profile-avatar { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 3px solid #f1f5f9; }
-.profile-details h2 { margin: 0 0 0.25rem 0; font-size: 1.25rem; color: #0f172a; font-weight: 700; text-transform: capitalize; }
-.profile-location { display: flex; align-items: center; gap: 0.5rem; color: #64748b; font-size: 0.9rem; margin-bottom: 1rem; }
-.btn-edit { background: white; border: 1px solid #3A86FF; color: #3A86FF; padding: 0.5rem 1.25rem; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
-.btn-edit:hover { background: #eff6ff; }
+.badge-complete { background: #dcfce7; color: #15803d; padding: 0.3rem 0.75rem; border-radius: 50px; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
 
-.action-btn { display: flex; align-items: center; gap: 1rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 1rem; cursor: pointer; text-decoration: none; color: inherit; transition: all 0.2s; }
-.action-btn:last-child { margin-bottom: 0; }
-.action-btn:hover { border-color: #3A86FF; background: #f8fafc; }
-.action-icon { width: 40px; height: 40px; border-radius: 10px; background: #3A86FF; color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0;}
-.action-text h4 { margin: 0 0 0.25rem 0; color: #0f172a; font-size: 1rem; font-weight: 600; }
-.action-text p { margin: 0; color: #64748b; font-size: 0.85rem; }
-.action-arrow { margin-left: auto; color: #cbd5e1; }
+/* Profile Card */
+.profile-info { display: flex; gap: 1.5rem; align-items: center; margin-bottom: 2rem; }
+.profile-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #f1f5f9; }
+.profile-details h2 { margin: 0 0 0.25rem 0; font-size: 1.4rem; color: #0f172a; font-weight: 700; }
+.profile-location { display: flex; align-items: center; gap: 0.4rem; color: #64748b; font-size: 0.85rem; margin-bottom: 0.75rem; }
+.btn-edit-profile { background: #fff; border: 1px solid #3A86FF; color: #3A86FF; padding: 0.4rem 1rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; }
 
-.booking-card { display: flex; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 1rem; background: white; }
-@media (max-width: 768px) { .booking-card { flex-direction: column; } .booking-left { width: 100% !important; border-right: none !important; border-bottom: 1px solid #e2e8f0; } }
-.booking-left { padding: 1.5rem; background: #fcfcfd; border-right: 1px solid #e2e8f0; width: 40%; flex-shrink: 0; display: flex; gap: 1.25rem; }
-.booking-provider-img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; }
-.booking-provider-info h4 { margin: 0 0 0.25rem 0; font-size: 1.1rem; color: #0f172a; font-weight: 600; }
-.booking-provider-info p { margin: 0; color: #64748b; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
-.status-badge { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.5rem; text-transform: capitalize; }
-.status-confirmed { background: #dcfce7; color: #166534; }
-.status-pending { background: #fef3c7; color: #92400e; }
-.status-rejected { background: #fee2e2; color: #b91c1c; }
-.booking-right { padding: 1.5rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
-.booking-desc { color: #334155; font-size: 0.95rem; margin-bottom: 1rem; line-height: 1.5; }
-.booking-price { font-size: 1.25rem; font-weight: 700; color: #3A86FF; margin-bottom: 1rem; }
-.btn-view-details { padding: 0.5rem 1rem; border: 1px solid #3A86FF; color: #3A86FF; background: transparent; border-radius: 6px; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; align-self: flex-start; text-decoration: none; }
-.btn-view-details:hover { background: #eff6ff; }
+.profile-stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; border-top: 1px solid #f1f5f9; margin-top: 1rem; padding-top: 1rem; }
+.stat-item { display: flex; align-items: center; gap: 0.75rem; padding: 0 0.5rem; }
+.stat-item:not(:last-child) { border-right: 1px solid #f1f5f9; }
+.stat-icon { width: 36px; height: 36px; border-radius: 10px; background: #f8fafc; color: #3A86FF; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+.stat-info { display: flex; flex-direction: column; }
+.stat-label { font-size: 0.75rem; color: #64748b; }
+.stat-value { font-size: 0.85rem; font-weight: 700; color: #0f172a; }
 
-.service-filters { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; overflow-x: auto; padding-bottom: 0.5rem; scrollbar-width: none; }
+/* Quick Actions */
+.action-btn { display: flex; align-items: center; gap: 1rem; padding: 1rem; border: 1px solid #eef2f6; border-radius: 12px; margin-bottom: 1rem; cursor: pointer; text-decoration: none; color: inherit; transition: all 0.2s; }
+.action-btn:hover { border-color: #3A86FF; background: #f8fafc; transform: translateX(4px); }
+.action-icon { width: 44px; height: 44px; border-radius: 10px; background: #3A86FF; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+.action-text h4 { margin: 0 0 0.2rem 0; color: #0f172a; font-size: 0.95rem; font-weight: 700; }
+.action-text p { margin: 0; color: #64748b; font-size: 0.8rem; }
+.action-arrow { margin-left: auto; color: #cbd5e1; font-size: 1.2rem; }
+
+/* Banner */
+.banner-cta { background: #f0f7ff; border-radius: 16px; padding: 1.5rem 2rem; margin-bottom: 2.5rem; display: flex; align-items: center; justify-content: space-between; border: 1px solid #dbeafe; position: relative; overflow: hidden; }
+.banner-cta::after { content: ''; position: absolute; top: 0; right: 0; width: 300px; height: 100%; background: linear-gradient(90deg, transparent, rgba(58, 134, 255, 0.05)); clip-path: polygon(20% 0%, 100% 0, 100% 100%, 0% 100%); }
+.banner-content { display: flex; align-items: center; gap: 1.5rem; position: relative; z-index: 1; }
+.banner-icon { width: 50px; height: 50px; border-radius: 12px; background: #3A86FF; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+.banner-text h3 { margin: 0 0 0.25rem 0; font-size: 1.1rem; font-weight: 700; color: #0f172a; }
+.banner-text p { margin: 0; color: #64748b; font-size: 0.9rem; }
+.btn-banner { background: #3A86FF; color: white; padding: 0.6rem 1.5rem; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 0.9rem; position: relative; z-index: 1; }
+
+/* Provider Section */
+.section-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.5rem; }
+.section-title-wrap h3 { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin: 0 0 0.25rem 0; }
+.section-title-wrap p { font-size: 0.9rem; color: #64748b; margin: 0; }
+
+.filter-search-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+.service-filters { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem; scrollbar-width: none; }
 .service-filters::-webkit-scrollbar { display: none; }
-.filter-pill { padding: 0.5rem 1.25rem; border-radius: 50px; border: 1px solid #e2e8f0; background: white; color: #475569; font-size: 0.9rem; cursor: pointer; white-space: nowrap; transition: all 0.2s; font-weight: 500; }
+.filter-pill { padding: 0.5rem 1.25rem; border-radius: 50px; border: 1px solid #eef2f6; background: white; color: #64748b; font-size: 0.85rem; cursor: pointer; white-space: nowrap; font-weight: 600; transition: all 0.2s; }
 .filter-pill.active { background: #3A86FF; color: white; border-color: #3A86FF; }
+.filter-pill:hover:not(.active) { background: #f8fafc; border-color: #cbd5e1; }
 
-.provider-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
-.provider-card { background: white; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 1rem; transition: all 0.2s; text-decoration: none; color: inherit; cursor: pointer; }
-.provider-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-color: #cbd5e1; transform: translateY(-2px); }
-.provider-card-img { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; }
-.provider-card-info h4 { margin: 0 0 0.25rem 0; font-size: 1rem; color: #0f172a; font-weight: 600;}
-.provider-card-info p { margin: 0; color: #64748b; font-size: 0.8rem; }
-.provider-card-rating { display: flex; align-items: center; gap: 0.25rem; font-size: 0.8rem; font-weight: 600; color: #334155; margin-top: 0.25rem; }
-.provider-card-arrow { margin-left: auto; color: #94a3b8; }
+.search-input-wrap { position: relative; min-width: 300px; }
+.search-input-wrap input { width: 100%; padding: 0.6rem 1rem 0.6rem 2.5rem; border: 1px solid #eef2f6; border-radius: 10px; outline: none; font-size: 0.9rem; }
+.search-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; }
 
+.provider-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.25rem; }
+.provider-card { background: white; border-radius: 14px; padding: 1rem; border: 1px solid #eef2f6; display: flex; align-items: center; gap: 0.85rem; text-decoration: none; color: inherit; transition: all 0.2s; position: relative; }
+.provider-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0,0,0,0.05); border-color: #3A86FF; }
+.provider-card-avatar { width: 52px; height: 52px; border-radius: 12px; object-fit: cover; flex-shrink: 0; }
+.provider-card-initials { width: 52px; height: 52px; border-radius: 12px; background: #eff6ff; color: #3A86FF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.1rem; flex-shrink: 0; }
+.provider-card-info { flex: 1; min-width: 0; }
+.provider-card-info h4 { margin: 0 0 0.15rem 0; font-size: 0.95rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.provider-card-status { font-size: 0.75rem; color: #64748b; margin-bottom: 0.25rem; }
+.provider-card-loc { font-size: 0.75rem; color: #64748b; display: flex; align-items: center; gap: 0.2rem; margin-bottom: 0.4rem; }
+.provider-card-rating { font-size: 0.8rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.25rem; }
+.provider-card-rating span { color: #94a3b8; font-weight: 400; }
+.provider-card-arrow { color: #cbd5e1; font-size: 1rem; margin-left: auto; }
+
+.more-providers-card { background: #fff; border: 1px dashed #3A86FF; border-radius: 14px; padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 0.75rem; text-decoration: none; color: inherit; transition: all 0.2s; }
+.more-providers-card:hover { background: #f0f7ff; }
+.more-icon-btn { width: 40px; height: 40px; border-radius: 50%; background: #eff6ff; color: #3A86FF; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+.more-providers-card h4 { margin: 0; font-size: 0.9rem; font-weight: 700; color: #3A86FF; }
+.more-providers-card p { margin: 0; font-size: 0.75rem; color: #64748b; line-height: 1.4; }
+
+/* Benefits Footer */
+.benefits-footer { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 4rem; padding-top: 2rem; border-top: 1px solid #eef2f6; }
+@media (max-width: 768px) { .benefits-footer { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .benefits-footer { grid-template-columns: 1fr; } }
+.benefit-item { display: flex; align-items: flex-start; gap: 1rem; }
+.benefit-icon { width: 44px; height: 44px; border-radius: 12px; background: #fff; border: 1px solid #eef2f6; color: #3A86FF; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+.benefit-text h4 { margin: 0 0 0.25rem 0; font-size: 0.85rem; font-weight: 700; color: #0f172a; }
+.benefit-text p { margin: 0; font-size: 0.75rem; color: #64748b; line-height: 1.4; }
+
+/* Modal Styles */
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(4px); }
 .modal-overlay.active { opacity: 1; pointer-events: auto; }
 .modal-content { background: white; border-radius: 16px; padding: 2rem; width: 90%; max-width: 500px; transform: translateY(20px); transition: transform 0.3s; box-shadow: 0 20px 40px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto; }
@@ -160,36 +182,59 @@ require_once 'includes/header.php';
 
 <div class="profile-wrapper">
     <?php if ($success): ?>
-        <div class="card" style="padding: 1rem; border-left: 4px solid #2ECC71; margin-bottom: 1rem;">
+        <div class="card" style="padding: 1rem; border-left: 4px solid #2ECC71; margin-bottom: 1rem; background: #fff;">
             <strong style="color:#2ECC71;"><?= htmlspecialchars($success) ?></strong>
         </div>
     <?php endif; ?>
-    <?php if ($error): ?>
-        <div class="card" style="padding: 1rem; border-left: 4px solid #e74c3c; margin-bottom: 1rem;">
-            <strong style="color:#e74c3c;"><?= htmlspecialchars($error) ?></strong>
-        </div>
-    <?php endif; ?>
 
-    <!-- Top Grid -->
     <div class="top-grid">
         <!-- My Profile Card -->
         <div class="dash-card">
             <div class="dash-card-header">
                 <h3 class="dash-card-title">My Profile</h3>
                 <?php if(!empty($user['profile_image_path']) && !empty($user['city'])): ?>
-                <span class="badge-complete">Profile Complete</span>
+                <span class="badge-complete">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Profile Complete
+                </span>
                 <?php endif; ?>
             </div>
             <div class="profile-info">
-                <?php $avatar = !empty($user['profile_image_path']) ? htmlspecialchars($user['profile_image_path']) : 'https://ui-avatars.com/api/?name='.urlencode($_SESSION['full_name']).'&background=E2E8F0&color=475569'; ?>
+                <?php $avatar = !empty($user['profile_image_path']) ? htmlspecialchars($user['profile_image_path']) : 'https://ui-avatars.com/api/?name='.urlencode($user['full_name']).'&background=EFF6FF&color=3A86FF&bold=true'; ?>
                 <img src="<?= $avatar ?>" alt="Profile" class="profile-avatar">
                 <div class="profile-details">
-                    <h2><?= htmlspecialchars($_SESSION['full_name']) ?></h2>
+                    <h2><?= htmlspecialchars($user['full_name']) ?></h2>
                     <div class="profile-location">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                         <?= htmlspecialchars($location ?: 'Location not set') ?>
                     </div>
-                    <button type="button" class="btn-edit" onclick="document.getElementById('editModal').classList.add('active')">Edit Profile</button>
+                    <button type="button" class="btn-edit-profile" onclick="document.getElementById('editModal').classList.add('active')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                        Edit Profile
+                    </button>
+                </div>
+            </div>
+            <div class="profile-stats-row">
+                <div class="stat-item">
+                    <div class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Account Status</span>
+                        <span class="stat-value" style="color: #10b981;">Active</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Member Since</span>
+                        <span class="stat-value"><?= $memberSince ?></span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Account Type</span>
+                        <span class="stat-value">Customer</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -199,157 +244,78 @@ require_once 'includes/header.php';
             <h3 class="dash-card-title" style="margin-bottom: 1.5rem;">Quick Actions</h3>
             <a href="filter_results.php" class="action-btn">
                 <div class="action-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                 </div>
                 <div class="action-text">
                     <h4>Book a Service</h4>
                     <p>Browse providers and book a service</p>
                 </div>
-                <svg class="action-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                <svg class="action-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </a>
             <a href="chat.php" class="action-btn">
-                <div class="action-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <div class="action-icon" style="background: #a855f7;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                 </div>
                 <div class="action-text">
                     <h4>View Messages</h4>
                     <p>Check your conversations</p>
                 </div>
-                <svg class="action-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                <svg class="action-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </a>
         </div>
     </div>
 
-    <!-- My Bookings -->
-    <div class="dash-card" style="margin-bottom: 2rem;">
-        <div class="dash-card-header">
-            <h3 class="dash-card-title">My Bookings</h3>
-            <a href="#" style="color: #3A86FF; text-decoration: none; font-size: 0.9rem; font-weight: 500;">View All</a>
-        </div>
-
-        <?php if (empty($bookings)): ?>
-            <p style="color: #64748b; text-align: center; padding: 2rem 0;">No bookings yet. Start by booking a service.</p>
-        <?php else: ?>
-            <?php foreach ($bookings as $b): 
-                $statusColor = $b['status'] === 'confirmed' ? 'status-confirmed' : ($b['status'] === 'pending' ? 'status-pending' : 'status-rejected');
-                $price = 'Price to be discussed';
-                $provImg = !empty($b['provider_image']) ? htmlspecialchars($b['provider_image']) : 'https://ui-avatars.com/api/?name='.urlencode($b['provider_name']);
-                $date = date('M j, Y', strtotime($b['scheduled_date']));
-                $time = date('g:i A', strtotime($b['scheduled_date']));
-            ?>
-            <div class="booking-card">
-                <div class="booking-left">
-                    <img src="<?= $provImg ?>" alt="Provider" class="booking-provider-img">
-                    <div class="booking-provider-info">
-                        <span class="status-badge <?= $statusColor ?>"><?= htmlspecialchars($b['status']) ?></span>
-                        <h4><?= htmlspecialchars($b['provider_name']) ?></h4>
-                        <p style="color: #3A86FF; font-weight: 500; margin-bottom: 0.5rem;"><?= htmlspecialchars($b['service_title']) ?></p>
-                        <p><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> <?= $date ?></p>
-                        <p><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> <?= $time ?></p>
-                        <p><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> <?= htmlspecialchars($b['provider_city']) ?></p>
-                    </div>
-                </div>
-                <div class="booking-right">
-                    <div class="booking-desc">
-                        <!-- We mock description here or use service title if description isn't available -->
-                        Task involves <?= htmlspecialchars(strtolower($b['service_title'])) ?> services as agreed.
-                        
-                        <?php 
-                        $conf = $b['completion_confirmed'] ?? 'pending';
-                        $isPast = strtotime($b['scheduled_date']) <= strtotime('today');
-                        if ($isPast && $conf !== 'agreed' && $conf !== 'disputed'): ?>
-                            <div id="confirm-area-<?= $b['id'] ?>" style="margin-top: 1rem; background: #fff8f1; padding: 1rem; border-radius: 8px; border: 1px solid #fed7aa;">
-                                <p style="font-size: 0.9rem; margin-bottom: 0.5rem; font-weight: 600; color: #9a3412;">Was the work completed?</p>
-                                <button type="button" class="btn btn-primary confirm-yes" data-id="<?= $b['id'] ?>" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Yes</button>
-                                <button type="button" class="btn btn-ghost confirm-no" data-id="<?= $b['id'] ?>" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">No</button>
-                            </div>
-                            
-                            <div id="rate-area-<?= $b['id'] ?>" style="display:none; margin-top: 1rem; background: #f8fafc; padding: 1rem; border-radius: 8px;">
-                                <p style="font-size: 0.9rem; margin-bottom: 0.5rem; font-weight: 600;">Rate this provider and service:</p>
-                                <form class="rate-form" data-id="<?= $b['id'] ?>" enctype="multipart/form-data">
-                                    <div style="margin-bottom: 0.75rem;">
-                                        <select name="rating" required style="padding: 0.4rem; width: 100%; border: 1px solid #cbd5e1; border-radius: 4px;">
-                                            <option value="">Choose rating...</option>
-                                            <option value="5">★★★★★ 5 - Excellent</option>
-                                            <option value="4">★★★★☆ 4 - Good</option>
-                                            <option value="3">★★★☆☆ 3 - Okay</option>
-                                            <option value="2">★★☆☆☆ 2 - Poor</option>
-                                            <option value="1">★☆☆☆☆ 1 - Bad</option>
-                                        </select>
-                                    </div>
-                                    <div style="margin-bottom: 0.75rem;">
-                                        <textarea name="review" placeholder="Share your experience..." style="padding: 0.4rem; width: 100%; height: 60px; font-family: inherit; border: 1px solid #cbd5e1; border-radius: 4px;"></textarea>
-                                    </div>
-                                    <div style="margin-bottom: 0.75rem;">
-                                        <label style="display: block; font-size: 0.8rem; margin-bottom: 0.25rem;">Photo (optional):</label>
-                                        <input type="file" name="review_photo" accept="image/*" style="font-size: 0.8rem;">
-                                        <div id="photo-preview-<?= $b['id'] ?>" style="margin-top: 0.5rem; display: none;">
-                                            <img id="img-preview-<?= $b['id'] ?>" style="max-width: 100px; border-radius: 4px;">
-                                        </div>
-                                    </div>
-                                    <div style="margin-bottom: 0.75rem;">
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem;">
-                                            <input type="checkbox" name="payment_accepted" required>
-                                            Work is done & payment acceptable
-                                        </label>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.8rem; width: 100%; font-size: 0.85rem;">Submit Review</button>
-                                </form>
-                            </div>
-                        <?php elseif ($conf === 'agreed'): ?>
-                            <div style="margin-top: 1rem;">
-                                <span style="color:#166534; font-weight: 500; font-size: 0.9rem;">✓ Work Completed</span>
-                                <?php if (!empty($b['rating'])): ?>
-                                    <span style="color: #f59e0b; font-weight: bold; margin-left: 0.5rem;">★ <?= (int)$b['rating'] ?></span>
-                                <?php endif; ?>
-                            </div>
-                        <?php elseif ($conf === 'disputed'): ?>
-                            <div style="margin-top: 1rem;"><span style="color:#b91c1c; font-weight: 500; font-size: 0.9rem;">Reported incomplete</span></div>
-                        <?php endif; ?>
-                    </div>
-                    <div>
-                        <div class="booking-price"><?= $price ?></div>
-                        <a href="chat.php?provider=<?= $b['provider_id'] ?>" class="btn-view-details">View Details & Message</a>
-                    </div>
-                </div>
+    <!-- Banner -->
+    <div class="banner-cta">
+        <div class="banner-content">
+            <div class="banner-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
             </div>
-            <?php endforeach; ?>
-        <?php endif; ?>
+            <div class="banner-text">
+                <h3>Find the best service for you</h3>
+                <p>Browse top-rated providers and book your next appointment with ease.</p>
+            </div>
+        </div>
+        <a href="filter_results.php" class="btn-banner">
+            <svg width="18" height="18" style="margin-right: 8px; vertical-align: middle;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            Book a Service
+        </a>
     </div>
 
-    <!-- Recommended Providers -->
-    <div style="margin-bottom: 1rem;">
-        <h3 class="dash-card-title" style="margin-bottom: 0.5rem;">Book a Service</h3>
-        <p style="color: #64748b; font-size: 0.95rem; margin-bottom: 1.5rem;">Find trusted providers in your area</p>
-        
-        <div class="service-filters">
-            <div class="filter-pill active">All Services</div>
-            <div class="filter-pill">Cleaning</div>
-            <div class="filter-pill">Plumbing</div>
-            <div class="filter-pill">Electrical</div>
-            <div class="filter-pill">Carpentry</div>
-            <div class="filter-pill">Others</div>
-        </div>
+    <!-- Book a Service Section -->
+   
 
-        <div class="provider-list">
-            <?php foreach($providers as $p): 
-                $img = !empty($p['profile_image_path']) ? htmlspecialchars($p['profile_image_path']) : 'https://ui-avatars.com/api/?name='.urlencode($p['full_name']);
-                // Mock rating and price range since they aren't directly in provider query currently
-                $mockRating = number_format(rand(45, 50) / 10, 1);
-                $mockReviews = rand(10, 50);
-            ?>
-            <a href="provider_profile.php?id=<?= $p['id'] ?>" class="provider-card">
-                <img src="<?= $img ?>" alt="Provider" class="provider-card-img">
-                <div class="provider-card-info">
-                    <h4><?= htmlspecialchars($p['full_name']) ?></h4>
-                    <p>Verified Provider • <?= htmlspecialchars($p['city']) ?></p>
-                    <div class="provider-card-rating">
-                        <?= $mockRating ?> <span style="color: #f59e0b;">★</span> <span style="color: #94a3b8; font-weight: normal;">(<?= $mockReviews ?>)</span>
-                    </div>
-                </div>
-                <svg class="provider-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </a>
-            <?php endforeach; ?>
+    
+
+    <!-- Benefits Footer -->
+    <div class="benefits-footer">
+        <div class="benefit-item">
+            <div class="benefit-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+            <div class="benefit-text">
+                <h4>Verified Providers</h4>
+                <p>All providers are verified and background checked.</p>
+            </div>
+        </div>
+        <div class="benefit-item">
+            <div class="benefit-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
+            <div class="benefit-text">
+                <h4>Top Rated Services</h4>
+                <p>Book with confidence from highly rated professionals.</p>
+            </div>
+        </div>
+        <div class="benefit-item">
+            <div class="benefit-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
+            <div class="benefit-text">
+                <h4>Secure Payments</h4>
+                <p>Your payments and personal information are protected.</p>
+            </div>
+        </div>
+        <div class="benefit-item">
+            <div class="benefit-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></div>
+            <div class="benefit-text">
+                <h4>24/7 Support</h4>
+                <p>Need help? Our support team is here for you.</p>
+            </div>
         </div>
     </div>
 </div>
@@ -383,78 +349,4 @@ require_once 'includes/header.php';
     </div>
 </div>
 
-<script>
-document.querySelectorAll('.confirm-yes').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-        var id = this.getAttribute('data-id');
-        var fd = new FormData();
-        fd.append('booking_id', id);
-        fd.append('agreed', '1');
-        fd.append('rating', '0');
-        fetch('api/confirm_booking.php', { method: 'POST', body: fd })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    document.getElementById('confirm-area-' + id).style.display = 'none';
-                    document.getElementById('rate-area-' + id).style.display = 'block';
-                } else alert(data.error || 'Failed');
-            });
-    });
-});
-document.querySelectorAll('.confirm-no').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-        var id = this.getAttribute('data-id');
-        if (!confirm('Report that the work was not completed?')) return;
-        var fd = new FormData();
-        fd.append('booking_id', id);
-        fd.append('agreed', '0');
-        fetch('api/confirm_booking.php', { method: 'POST', body: fd })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.success) location.reload();
-                else alert(data.error || 'Failed');
-            });
-    });
-});
-document.querySelectorAll('.rate-form').forEach(function(form) {
-    var bookingId = form.getAttribute('data-id');
-    
-    // Photo preview handler
-    var photoInput = form.querySelector('input[name="review_photo"]');
-    if (photoInput) {
-        photoInput.addEventListener('change', function(e) {
-            var file = e.target.files[0];
-            if (file) {
-                var reader = new FileReader();
-                reader.onload = function(event) {
-                    var preview = document.getElementById('photo-preview-' + bookingId);
-                    var img = document.getElementById('img-preview-' + bookingId);
-                    if (preview && img) {
-                        img.src = event.target.result;
-                        preview.style.display = 'block';
-                    }
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-    
-    // Form submission
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        var id = this.getAttribute('data-id');
-        var fd = new FormData(this);
-        fd.append('booking_id', id);
-        fd.append('agreed', '1');
-        if (!fd.get('rating')) { alert('Please choose a rating.'); return; }
-        if (!fd.get('payment_accepted')) { alert('Please confirm the work is done.'); return; }
-        fetch('api/confirm_booking.php', { method: 'POST', body: fd })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.success) location.reload();
-                else alert(data.error || 'Failed');
-            });
-    });
-});
-</script>
 <?php require_once 'includes/footer.php'; ?>

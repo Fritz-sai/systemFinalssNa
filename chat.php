@@ -164,8 +164,7 @@ require_once 'includes/header.php';
             </div>
             <div class="chat-input">
                 <?php if ($role === 'provider'): ?>
-                <button type="button" class="btn-icon-plus" id="share-service-btn" title="Share a service">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    
                         <line x1="12" y1="5" x2="12" y2="19"></line>
                         <line x1="5" y1="12" x2="19" y2="12"></line>
                     </svg>
@@ -287,8 +286,8 @@ require_once 'includes/header.php';
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary-color);"><path d="M9 11l3 3L22 4"></path><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         Selected Service
                     </h4>
-                    <input type="text" id="service-title" name="service_title" min="0" step="0.01" required placeholder="service title" style="width:100%; padding:0.75rem 0.75rem 0.75rem 2.5rem; border:1px solid #ced4da; border-radius:8px; font-size:1.1rem; font-weight: 600; color: var(--primary-color); outline: none; transition: border-color 0.2s;">
-                   
+                    <input type="hidden" id="service-id-hidden" name="service_id">
+                    <input type="text" id="service-title" name="service_title" required placeholder="Service title" style="width:100%; padding:0.75rem 0.75rem 0.75rem 2.5rem; border:1px solid #ced4da; border-radius:8px; font-size:1.1rem; font-weight: 600; color: var(--primary-color); outline: none; transition: border-color 0.2s;">
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
@@ -577,7 +576,7 @@ setInterval(loadMessages, 3000);
 ";
 
     if ($role === 'provider') {
-        $extraJs .= "
+        $extraJs .= <<<'JS'
 // Service sharing for providers
 const serviceModal = document.getElementById('service-modal');
 const shareServiceBtn = document.getElementById('share-service-btn');
@@ -624,16 +623,17 @@ function loadProviderServices() {
         .then(function(data) {
             servicesLoading.style.display = 'none';
             if (!data.services || data.services.length === 0) {
-                servicesList.innerHTML = '<div style=\"text-align:center; padding:1rem; color:var(--text-muted);\">No services yet. Create one first.</div>';
+                servicesList.innerHTML = '<div style="text-align:center; padding:1rem; color:var(--text-muted);">No services yet. Create one first.</div>';
                 return;
             }
             servicesList.innerHTML = data.services.map(s => {
-                const categoryBadge = s.category_name ? '<div style=\"display:inline-block; background:var(--accent); color:white; padding:0.25rem 0.6rem; border-radius:12px; font-size:0.75rem; font-weight:600; margin-bottom:0.5rem;\">' + s.category_name + '</div>' : '';
-                return '<div class=\"service-item\" style=\"padding:1rem; border:1px solid var(--border-color); border-radius:var(--radius); cursor:pointer; transition:var(--transition);\" data-service-id=\"' + s.id + '\" data-service-title=\"' + (s.title || '') + '\" data-price-min=\"' + (s.price_min || 0) + '\" data-price-max=\"' + (s.price_max || 0) + '\">' +
+                const safeTitle = (s.title || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                const categoryBadge = s.category_name ? '<div style="display:inline-block; background:var(--accent); color:white; padding:0.25rem 0.6rem; border-radius:12px; font-size:0.75rem; font-weight:600; margin-bottom:0.5rem;">' + s.category_name + '</div>' : '';
+                return '<div class="service-item" style="padding:1rem; border:1px solid var(--border-color); border-radius:var(--radius); cursor:pointer; transition:var(--transition);" data-service-id="' + s.id + '" data-service-title="' + safeTitle + '" data-price-min="' + (s.price_min || 0) + '" data-price-max="' + (s.price_max || 0) + '">' +
                     categoryBadge +
-                    '<div style=\"font-weight:500; color:var(--text-dark); margin-bottom:0.25rem;\">' + s.title + '</div>' +
-                    '<div style=\"font-size:0.85rem; color:var(--text-muted); margin-bottom:0.5rem;\">' + (s.description ? s.description.substring(0, 60) + (s.description.length > 60 ? '...' : '') : '') + '</div>' +
-                    '<div style=\"font-weight:600; color:var(--accent); font-size:0.95rem;\">₱' + parseFloat(s.price_min).toFixed(2) + (s.price_max != s.price_min ? ' - ₱' + parseFloat(s.price_max).toFixed(2) : '') + '</div>' +
+                    '<div style="font-weight:500; color:var(--text-dark); margin-bottom:0.25rem;">' + s.title + '</div>' +
+                    '<div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.5rem;">' + (s.description ? s.description.substring(0, 60) + (s.description.length > 60 ? '...' : '') : '') + '</div>' +
+                    '<div style="font-weight:600; color:var(--accent); font-size:0.95rem;">₱' + parseFloat(s.price_min || 0).toFixed(2) + (s.price_max != s.price_min ? ' - ₱' + parseFloat(s.price_max || 0).toFixed(2) : '') + '</div>' +
                     '</div>';
             }).join('');
             
@@ -661,11 +661,14 @@ function loadProviderServices() {
 }
 
 function showServiceForm(serviceId, serviceTitle, priceMin) {
-    const select = document.getElementById('service-select');
-    if (select && select.options.length > 0) {
-        select.options[0].value = serviceId;
-        select.options[0].text = serviceTitle;
-        select.value = serviceId;
+    const serviceIdInput = document.getElementById('service-id-hidden');
+    if (serviceIdInput) {
+        serviceIdInput.value = serviceId;
+    }
+    
+    const titleInput = document.getElementById('service-title');
+    if (titleInput) {
+        titleInput.value = serviceTitle;
     }
     
     const priceInput = document.getElementById('service-price');
@@ -685,7 +688,8 @@ function showServiceForm(serviceId, serviceTitle, priceMin) {
 
 document.getElementById('service-share-form')?.addEventListener('submit', function(e) {
     e.preventDefault();
-    const serviceId = document.getElementById('service-select').value;
+    const serviceId = document.getElementById('service-id-hidden').value;
+    const serviceTitle = document.getElementById('service-title').value;
     const scheduledDate = document.getElementById('service-date').value;
     const scheduledTime = document.getElementById('service-time').value;
     const price = document.getElementById('service-price').value;
@@ -695,15 +699,15 @@ document.getElementById('service-share-form')?.addEventListener('submit', functi
         return;
     }
     
-    sendServiceMessage(serviceId, scheduledDate, scheduledTime, price);
+    sendServiceMessage(serviceId, scheduledDate, scheduledTime, price, serviceTitle);
 });
 
-function sendServiceMessage(serviceId, scheduledDate, scheduledTime, price) {
+function sendServiceMessage(serviceId, scheduledDate, scheduledTime, price, serviceTitle) {
     const instanceId = 'srv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     fetch('api/send_message.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: 'chat_id=' + chatId + '&message=&service_id=' + serviceId + '&instance_id=' + instanceId + '&scheduled_date=' + encodeURIComponent(scheduledDate) + '&scheduled_time=' + encodeURIComponent(scheduledTime) + '&price=' + encodeURIComponent(price)
+        body: 'chat_id=' + chatId + '&message=&service_id=' + serviceId + '&instance_id=' + instanceId + '&scheduled_date=' + encodeURIComponent(scheduledDate) + '&scheduled_time=' + encodeURIComponent(scheduledTime) + '&price=' + encodeURIComponent(price) + '&service_title=' + encodeURIComponent(serviceTitle)
     }).then(r => r.json()).then(function() {
         serviceModal.style.display = 'none';
         serviceForm.style.display = 'none';
@@ -712,9 +716,14 @@ function sendServiceMessage(serviceId, scheduledDate, scheduledTime, price) {
         loadMessages();
     });
 }
+JS;
 
+        $extraJs .= "
 // Contact unlock for providers
 const unlockCost = " . (int)CREDITS_PER_UNLOCK . ";
+";
+
+        $extraJs .= <<<'JS'
 let isUnlocked = false;
 let pendingLoadMessages = false;
 
@@ -782,7 +791,8 @@ document.getElementById('unlock-modal-cancel')?.addEventListener('click', functi
 });
 
 loadContactStatus();
-";
+JS;
+
     }
 
     if ($role === 'customer') {

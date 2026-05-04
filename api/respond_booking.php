@@ -11,9 +11,20 @@ $providerId = (int)($_SESSION['provider_id'] ?? 0);
 $bookingId = (int)($_POST['booking_id'] ?? 0);
 $decision = trim((string)($_POST['decision'] ?? ''));
 
+$reason = trim((string)($_POST['reason'] ?? ''));
+$rescheduleDate = trim((string)($_POST['reschedule_date'] ?? ''));
+$rescheduleTime = trim((string)($_POST['reschedule_time'] ?? ''));
+
 if ($providerId <= 0 || $bookingId <= 0 || !in_array($decision, ['approve', 'decline', 'confirm', 'done', 'cancel', 'reject'], true)) {
     echo json_encode(['success' => false, 'error' => 'Invalid request']);
     exit;
+}
+
+if ($decision === 'reject') {
+    if (strlen($reason) < 10) {
+        echo json_encode(['success' => false, 'error' => 'A rejection reason of at least 10 characters is required.']);
+        exit;
+    }
 }
 
 $pdo = getDBConnection();
@@ -62,8 +73,19 @@ try {
     }
 
     $newStatus = $statusMap[$decision];
-    $pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?")
-        ->execute([$newStatus, $bookingId]);
+    
+    $suggestedReschedule = null;
+    if ($decision === 'reject' && !empty($rescheduleDate) && !empty($rescheduleTime)) {
+        $suggestedReschedule = $rescheduleDate . ' ' . $rescheduleTime . ':00';
+    }
+
+    if ($decision === 'reject') {
+        $pdo->prepare("UPDATE bookings SET status = ?, rejection_reason = ?, suggested_reschedule_date = ? WHERE id = ?")
+            ->execute([$newStatus, $reason, $suggestedReschedule, $bookingId]);
+    } else {
+        $pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?")
+            ->execute([$newStatus, $bookingId]);
+    }
 
     if ($newStatus === 'confirmed') {
         $title = 'Booking Confirmed';
@@ -73,7 +95,11 @@ try {
         $body = 'Your provider marked "' . $booking['service_title'] . '" as completed.';
     } elseif ($newStatus === 'rejected') {
         $title = 'Booking Declined';
-        $body = 'Your booking request for "' . $booking['service_title'] . '" was declined by the provider.';
+        $body = 'Your booking request for "' . $booking['service_title'] . '" was declined by the provider. Reason: ' . htmlspecialchars($reason);
+        if ($suggestedReschedule) {
+            $formattedReschedule = date('M j, Y g:i A', strtotime($suggestedReschedule));
+            $body .= " | Suggested new schedule: $formattedReschedule";
+        }
     } else {
         $title = 'Booking Cancelled';
         $body = 'Your booking for "' . $booking['service_title'] . '" was cancelled by the provider.';
@@ -90,6 +116,5 @@ try {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    echo json_encode(['success' => false, 'error' => 'Failed to update booking']);
+    echo json_encode(['success' => false, 'error' => 'Failed to update booking: ' . $e->getMessage()]);
 }
-

@@ -30,9 +30,12 @@ $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $fullName = trim($_POST['full_name'] ?? '');
-    $phone = trim($_POST['phone'] ?? '');
     $city = trim($_POST['city'] ?? '');
     $barangay = trim($_POST['barangay'] ?? '');
+
+    // Phone is now unchangeable via settings
+    $phone = $provider['phone'];
+
     $profileImagePath = $provider['profile_image_path'] ?? null;
 
     // Optional profile picture upload
@@ -51,8 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    if ($fullName === '' || $phone === '' || $city === '' || $barangay === '') {
-        $error = 'Full name, phone, city, and barangay are required.';
+    if ($fullName === '' || $city === '' || $barangay === '') {
+        $error = 'Full name, city, and barangay are required.';
     } else {
         $pdo->prepare("UPDATE users SET full_name = ?, phone = ? WHERE id = ?")
             ->execute([$fullName, $phone, $userId]);
@@ -95,8 +98,8 @@ require_once 'includes/header.php';
                 <input type="email" value="<?= htmlspecialchars($provider['email']) ?>" disabled>
             </div>
             <div class="form-group">
-                <label>Phone</label>
-                <input type="tel" name="phone" value="<?= htmlspecialchars($provider['phone']) ?>" required>
+                <label>Phone (Unchangeable)</label>
+                <input type="tel" value="<?= htmlspecialchars($provider['phone']) ?>" readonly style="background: #f1f5f9; cursor: not-allowed;">
             </div>
 
             <div class="form-group">
@@ -319,4 +322,3 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <?php require_once 'includes/footer.php'; ?>
-
